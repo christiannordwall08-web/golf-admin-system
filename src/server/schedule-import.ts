@@ -32,7 +32,16 @@ export const scheduleImportSchema = z.object({
       }),
     )
     .min(1),
-  shifts: z.array(z.object({ employee: z.string().trim().min(1), date, from: time, to: time })),
+  shifts: z.array(
+    z.object({
+      employee: z.string().trim().min(1),
+      date,
+      from: time,
+      to: time,
+      /** Fri text från schemat, t.ex. "öppnar" eller "Fr. 12". Sparas på passet och visas i schemat. */
+      notes: z.string().trim().max(200).optional(),
+    }),
+  ),
 });
 export type ScheduleImportInput = z.input<typeof scheduleImportSchema>;
 
@@ -80,7 +89,7 @@ export async function importSchedule(db: PrismaClient, raw: ScheduleImportInput)
     const endsAt = localToInstant(s.date, s.to);
     const issue = validateShiftTimes({ startsAt, endsAt });
     if (issue) throw new ValidationError(`Passet ${s.date} ${s.from}–${s.to}: ${issue.message}`);
-    return { employee: e, date: s.date, startsAt, endsAt };
+    return { employee: e, date: s.date, startsAt, endsAt, notes: s.notes };
   });
 
   const actor = await importActor(db);
@@ -156,6 +165,7 @@ export async function importSchedule(db: PrismaClient, raw: ScheduleImportInput)
           localDate: dateStringToDbDate(stockholmDateOf(s.startsAt)),
           publicationStatus: "PUBLISHED",
           approvalStatus: input.approvalStatus,
+          notes: s.notes,
           createdById: actor.id,
         },
       });

@@ -19,6 +19,8 @@ export type CalendarShift = {
   phase: ShiftPhase;
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
   publicationStatus?: "DRAFT" | "PUBLISHED";
+  /** Notering från schemat, t.ex. "öppnar". */
+  note?: string | null;
 };
 
 const CHIP: Record<WorkCategory, string> = {
@@ -102,6 +104,7 @@ export function ScheduleCalendar({
                           >
                             {s.employeeName ? <span className="block truncate font-semibold">{s.employeeName}</span> : null}
                             <span className="block tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
+                            {s.note ? <span className="block text-[10px] font-medium italic">{s.note}</span> : null}
                           </li>
                         ))
                       : null}
@@ -131,6 +134,7 @@ export function ScheduleCalendar({
                       {s.employeeName ? <span className="font-medium">{s.employeeName}</span> : null}
                       <span className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
                       <span className="text-ink-muted">{formatDuration(s.minutes)}</span>
+                      {s.note ? <span className="rounded bg-stone-100 px-1.5 py-0.5 text-xs font-medium italic">{s.note}</span> : null}
                       {showCategory ? <CategoryBadge category={s.category} /> : null}
                       <span className="flex flex-wrap gap-1.5">
                         {s.publicationStatus ? <DraftBadge publicationStatus={s.publicationStatus} /> : null}

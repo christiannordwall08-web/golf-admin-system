@@ -16,6 +16,7 @@ export type ProfileShift = {
   phase: ShiftPhase;
   workStatus: HourShift["workStatus"];
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
+  note: string | null;
   /** Timlön som gäller passets arbetsdag, och preliminär ersättning (bara för genomförda pass). */
   hourlyRateOre: number | null;
   estimatedCompensationOre: number | null;
@@ -60,7 +61,7 @@ export async function getEmployeeProfile(
 
   const rows = await db.shift.findMany({
     where: { assignedEmployeeId: employeeId, startsAt: { gte: start, lt: end } },
-    select: { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true },
+    select: { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true },
     orderBy: { startsAt: "asc" },
   });
 
@@ -80,6 +81,7 @@ export async function getEmployeeProfile(
       phase,
       workStatus: row.workStatus,
       approvalStatus: row.approvalStatus,
+      note: row.notes,
       hourlyRateOre: rate?.hourlyRateOre ?? null,
       estimatedCompensationOre: phase === "COMPLETED" && rate ? compensationOre(shiftMinutes(h), rate.hourlyRateOre) : null,
     };

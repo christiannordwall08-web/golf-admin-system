@@ -141,3 +141,51 @@ describe("importSchedule – ett utskrivet schema in i den lokala databasen", ()
     expect(await db.shift.count()).toBe(0);
   });
 });
+
+describe("importSchedule – pass med notering och utan timlön (heltidspersonal på ett utskrivet schema)", () => {
+  const WITH_NOTES: ScheduleImportInput = {
+    category: "GOLFSHOP",
+    employees: [{ firstName: "Eli" }, { firstName: "Fia" }], // ingen timlön angiven
+    shifts: [
+      { employee: "Eli", date: "2026-11-05", from: "09:00", to: "17:00", notes: "öppnar" },
+      { employee: "Eli", date: "2026-11-19", from: "12:00", to: "17:00", notes: "Fr. 12" },
+      { employee: "Fia", date: "2026-11-05", from: "09:00", to: "17:00" },
+    ],
+  };
+
+  it("sparar noteringen på passet och visar den i schemat (admin) och hos den anställde", async () => {
+    await importSchedule(db, WITH_NOTES);
+    const shifts = await getScheduleMonth(db, await admin(), { year: 2026, month: 11, now: NOW });
+    expect(shifts.map((s) => [s.employeeName, s.localDate, s.note])).toEqual([
+      ["Eli", "2026-11-05", "öppnar"],
+      ["Fia", "2026-11-05", null],
+      ["Eli", "2026-11-19", "Fr. 12"],
+    ]);
+
+    // Den anställde själv ser också noteringen (via en kopplad användare)
+    const user = await db.user.create({ data: { email: "eli@demo.test", passwordHash: "x", role: "GOLFSHOP", isTestData: true } });
+    const eli = await db.employee.findFirstOrThrow({ where: { firstName: "Eli" } });
+    await db.employee.update({ where: { id: eli.id }, data: { userId: user.id } });
+    const { getMyMonth } = await import("@/server/queries/self");
+    const mine = await getMyMonth(db, { id: user.id, role: "GOLFSHOP" }, { userId: user.id, employeeId: eli.id, year: 2026, month: 11, now: NOW });
+    expect(mine.shifts.map((s) => s.note)).toEqual(["öppnar", "Fr. 12"]);
+  });
+
+  it("utan angiven timlön finns ingen lönepost: lön 'Saknas' (null) och ingen påhittad ersättning, men timmarna räknas", async () => {
+    const r = await importSchedule(db, WITH_NOTES);
+    expect(r.ratesSet).toEqual([]);
+    expect(await db.payRate.count()).toBe(0);
+    const { rows, totals } = await getPersonnelOverview(db, await admin(), { year: 2026, month: 11, now: NOW });
+    const eli = rows.find((p) => p.fullName === "Eli")!;
+    expect(eli).toMatchObject({ hourlyRateOre: null, completedMinutes: 480 + 300, estimatedCompensationOre: 0, shiftsMissingRate: 2 });
+    // Totalen talar om att passen utan lön inte ingår (Eli 2 pass + Fia 1 pass)
+    expect(totals.shiftsMissingRate).toBe(3);
+    expect(totals.estimatedCompensationOre).toBe(0);
+  });
+
+  it("'Fr. 12' börjar 12.00 svensk tid (11.00 UTC på vintern) och ger 5 timmar", async () => {
+    await importSchedule(db, WITH_NOTES);
+    const s = (await getScheduleMonth(db, await admin(), { year: 2026, month: 11, now: NOW })).find((x) => x.note === "Fr. 12")!;
+    expect([s.startsAt.toISOString(), s.endsAt.toISOString(), s.minutes]).toEqual(["2026-11-19T11:00:00.000Z", "2026-11-19T16:00:00.000Z", 300]);
+  });
+});

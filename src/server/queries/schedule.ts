@@ -20,6 +20,8 @@ export type ScheduleShift = {
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
   workStatus: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "ABSENT";
   phase: ShiftPhase;
+  /** Fri notering på passet (t.ex. "öppnar"). */
+  note: string | null;
 };
 
 const shiftSelect = {
@@ -31,6 +33,7 @@ const shiftSelect = {
   publicationStatus: true,
   approvalStatus: true,
   workStatus: true,
+  notes: true,
   assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
   originalEmployee: { select: { id: true, firstName: true, lastName: true } },
 } as const;
@@ -44,6 +47,7 @@ type ShiftRow = {
   publicationStatus: ScheduleShift["publicationStatus"];
   approvalStatus: ScheduleShift["approvalStatus"];
   workStatus: ScheduleShift["workStatus"];
+  notes: string | null;
   assignedEmployee: { id: string; firstName: string; lastName: string };
   originalEmployee: { id: string; firstName: string; lastName: string };
 };
@@ -65,6 +69,7 @@ export function toScheduleShift(row: ShiftRow, now: Date): ScheduleShift {
     approvalStatus: row.approvalStatus,
     workStatus: row.workStatus,
     phase: shiftPhase(hour, now),
+    note: row.notes,
   };
 }
 

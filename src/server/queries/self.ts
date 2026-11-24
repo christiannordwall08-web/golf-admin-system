@@ -14,6 +14,7 @@ export type MyShift = {
   phase: ShiftPhase;
   workStatus: HourShift["workStatus"];
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
+  note: string | null;
 };
 
 export type MyMonth = {
@@ -50,7 +51,7 @@ export async function getMyMonth(
   if (!employee) throw new ForbiddenError();
 
   const published = { publicationStatus: "PUBLISHED" as const };
-  const select = { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true };
+  const select = { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true };
   const [rows, upcoming, pendingApprovals] = await Promise.all([
     db.shift.findMany({
       where: { assignedEmployeeId: employee.id, startsAt: { gte: start, lt: end }, ...published },
@@ -79,6 +80,7 @@ export async function getMyMonth(
       phase: shiftPhase(h, now),
       workStatus: row.workStatus,
       approvalStatus: row.approvalStatus,
+      note: row.notes,
     };
   };
   const hourShifts = rows.map(toHourShift);

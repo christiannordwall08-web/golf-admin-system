@@ -95,7 +95,9 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
                   <Td align="right">{formatDuration(r.completedMinutes)}</Td>
                   <Td align="right">{formatDuration(r.remainingMinutes)}</Td>
                   <Td align="right" className="font-medium">{formatDuration(r.totalMinutes)}</Td>
-                  <Td align="right">{formatSek(r.estimatedCompensationOre)}</Td>
+                  <Td align="right">
+                    {r.shiftsMissingRate > 0 && r.estimatedCompensationOre === 0 ? <span className="text-danger-700">Lön saknas</span> : formatSek(r.estimatedCompensationOre)}
+                  </Td>
                   <Td className="whitespace-nowrap tabular-nums">
                     {r.nextShift ? `${formatDateShort(r.nextShift.startsAt)} ${formatTimeRange(r.nextShift.startsAt, r.nextShift.endsAt)}` : <span className="text-ink-muted">Inget planerat</span>}
                   </Td>
@@ -120,6 +122,12 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
         <b>Genomfört</b> = pass vars sluttid passerat, <b>Kommande</b> = återstående schemalagt i månaden (inkl. pågående).
         Det är tid enligt schema, inte godkänd arbetstid. <b>Prel. ersättning</b> räknas bara på genomförda pass med lönen som gällde
         respektive dag. Godkännande och löneunderlag byggs i Etapp 4.
+        {totals.shiftsMissingRate > 0 ? (
+          <>
+            {" "}
+            <b>{totals.shiftsMissingRate} genomförda pass saknar timlön</b> och ingår inte i ersättningen ovan (de visas som Lön saknas, inte som 0 kr).
+          </>
+        ) : null}
       </Notice>
     </>
   );

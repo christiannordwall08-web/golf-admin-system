@@ -31,6 +31,8 @@ export type PersonnelTotals = {
   remainingMinutes: number;
   totalMinutes: number;
   estimatedCompensationOre: number;
+  /** Genomförda pass där ingen timlön gällde. De ingår INTE i ersättningen. */
+  shiftsMissingRate: number;
   byCategory: Record<WorkCategory, { employees: number; completedMinutes: number; remainingMinutes: number }>;
 };
 
@@ -117,6 +119,7 @@ export async function getPersonnelOverview(
     remainingMinutes: 0,
     totalMinutes: 0,
     estimatedCompensationOre: 0,
+    shiftsMissingRate: 0,
     byCategory: {
       GOLFSHOP: { employees: 0, completedMinutes: 0, remainingMinutes: 0 },
       BOLLPLOCKARE: { employees: 0, completedMinutes: 0, remainingMinutes: 0 },
@@ -127,6 +130,7 @@ export async function getPersonnelOverview(
     totals.remainingMinutes += r.remainingMinutes;
     totals.totalMinutes += r.totalMinutes;
     totals.estimatedCompensationOre += r.estimatedCompensationOre;
+    totals.shiftsMissingRate += r.shiftsMissingRate;
     const c = totals.byCategory[r.category];
     c.employees++;
     c.completedMinutes += r.completedMinutes;

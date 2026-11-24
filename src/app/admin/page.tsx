@@ -45,7 +45,7 @@ export default async function AdminHome() {
         <StatCard label="Genomfört i månaden" value={formatDuration(d.monthTotals.completedMinutes)} icon={Clock} hint="Enligt schema, ej godkänd tid" />
         <StatCard label="Kommande i månaden" value={formatDuration(d.monthTotals.remainingMinutes)} icon={Hourglass} hint="Schemalagt, inte genomfört" />
         <StatCard label="Godkända timmar" value={formatDuration(d.approvedMinutes)} icon={UserCheck} hint="Godkännande byggs i Etapp 4" />
-        <StatCard label="Preliminär lönekostnad" value={formatSek(d.monthTotals.estimatedCompensationOre)} icon={CircleDollarSign} hint="Genomförda pass × timlön, ej godkänd" />
+        <StatCard label="Preliminär lönekostnad" value={formatSek(d.monthTotals.estimatedCompensationOre)} icon={CircleDollarSign} hint={d.monthTotals.shiftsMissingRate > 0 ? `${d.monthTotals.shiftsMissingRate} genomförda pass saknar timlön och ingår inte` : "Genomförda pass × timlön, ej godkänd"} />
         <StatCard label="Väntar på godkännande" value={d.actions.pendingApprovals} icon={ShieldCheck} hint="Pass som personalen inte accepterat än" />
         <StatCard label="Bytesförfrågningar" value={d.actions.openSwapRequests} icon={Repeat} hint="Öppna ärenden" />
         <StatCard label="Utkast (ej publicerade pass)" value={d.actions.draftShifts} icon={FileEdit} hint="Framtida pass" />

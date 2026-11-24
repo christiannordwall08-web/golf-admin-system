@@ -71,10 +71,13 @@ riktiga namn och scheman ska aldrig committas):
 {
   "category": "GOLFSHOP",
   "approvalStatus": "APPROVED",
-  "employees": [{ "firstName": "Anna", "hourlyRateKr": 150, "rateFrom": "2026-01-01" }],
-  "shifts": [{ "employee": "Anna", "date": "2026-11-01", "from": "11:00", "to": "15:00" }]
+  "employees": [{ "firstName": "Anna", "hourlyRateKr": 150, "rateFrom": "2026-01-01" }, { "firstName": "Bo" }],
+  "shifts": [{ "employee": "Anna", "date": "2026-11-01", "from": "11:00", "to": "15:00", "notes": "öppnar" }]
 }
 ```
+
+`hourlyRateKr` och `notes` är valfria. Utan timlön visas **Lön saknas** (aldrig 0 kr) och passen ingår inte i ersättningen, men timmarna räknas. `notes` är fri text
+från schemat (t.ex. "öppnar") och visas vid passet.
 
 - `npm run db:import -- .local/min-fil.json` läser in den i den lokala databasen. Importen är idempotent (inget dubbleras) och vägrar köra i production eller mot en
   icke-lokal databas. Är en timlön fel (en enda lönepost) rättas den när du kör om med ny `hourlyRateKr`. Efternamn är valfritt.

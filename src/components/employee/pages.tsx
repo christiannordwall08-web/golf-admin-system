@@ -36,7 +36,7 @@ function ShiftTable({ my }: { my: MyMonth }) {
     <TableWrap>
       <Table>
         <thead>
-          <tr><Th>Datum</Th><Th>Tid</Th><Th align="right">Timmar</Th><Th>Godkännande</Th><Th>Status</Th></tr>
+          <tr><Th>Datum</Th><Th>Tid</Th><Th align="right">Timmar</Th><Th>Notering</Th><Th>Godkännande</Th><Th>Status</Th></tr>
         </thead>
         <tbody>
           {my.shifts.map((s) => (
@@ -44,6 +44,7 @@ function ShiftTable({ my }: { my: MyMonth }) {
               <Td className="first-letter:uppercase">{dayLabel(localToInstant(s.localDate, "12:00"))}</Td>
               <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>
               <Td align="right">{formatDuration(s.minutes)}</Td>
+              <Td className="italic text-ink-muted">{s.note ?? ""}</Td>
               <Td><ApprovalBadge status={s.approvalStatus} /></Td>
               <Td>{s.phase === "UPCOMING" ? <span className="text-ink-muted">Kommande</span> : <PhaseBadge phase={s.phase} />}</Td>
             </tr>
@@ -138,6 +139,7 @@ export async function EmployeeSchedule({ category, searchParams }: { category: W
           category,
           phase: s.phase,
           approvalStatus: s.approvalStatus,
+          note: s.note,
         }))}
       />
       <Notice tone="info" className="mt-6">

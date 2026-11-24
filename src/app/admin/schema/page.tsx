@@ -89,6 +89,7 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
           phase: s.phase,
           approvalStatus: s.approvalStatus,
           publicationStatus: s.publicationStatus,
+          note: s.note,
         }))}
       />
 

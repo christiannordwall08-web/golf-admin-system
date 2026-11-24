@@ -63,7 +63,7 @@ export default async function EmployeeProfilePage({
         <StatCard label="Timlön idag" value={p.currentHourlyRateOre === null ? "Saknas" : `${formatSek(p.currentHourlyRateOre)}/h`} />
         <StatCard label="Genomfört i månaden" value={formatDuration(p.summary.completedMinutes)} hint={`${p.summary.completedCount} pass · enligt schema`} />
         <StatCard label="Kommande i månaden" value={formatDuration(p.summary.remainingMinutes)} hint={`${p.summary.remainingCount} pass`} />
-        <StatCard label="Preliminär ersättning" value={formatSek(p.estimatedCompensationOre)} hint="Genomförda pass, ej godkänd" />
+        <StatCard label="Preliminär ersättning" value={formatSek(p.estimatedCompensationOre)} hint={p.shiftsMissingRate > 0 ? `Timlön saknas för ${p.shiftsMissingRate} genomförda pass` : "Genomförda pass, ej godkänd"} />
       </section>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -108,7 +108,7 @@ export default async function EmployeeProfilePage({
               <TableWrap className="rounded-none border-0 shadow-none">
                 <Table>
                   <thead>
-                    <tr><Th>Datum</Th><Th>Tid</Th><Th align="right">Timmar</Th><Th align="right">Timlön</Th><Th align="right">Prel. ersättning</Th><Th>Status</Th></tr>
+                    <tr><Th>Datum</Th><Th>Tid</Th><Th align="right">Timmar</Th><Th>Notering</Th><Th align="right">Timlön</Th><Th align="right">Prel. ersättning</Th><Th>Status</Th></tr>
                   </thead>
                   <tbody>
                     {p.shifts.map((s) => (
@@ -116,6 +116,7 @@ export default async function EmployeeProfilePage({
                         <Td className="first-letter:uppercase">{formatDateLong(localToInstant(s.localDate, "12:00"))}</Td>
                         <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>
                         <Td align="right">{formatDuration(s.minutes)}</Td>
+                        <Td className="italic text-ink-muted">{s.note ?? ""}</Td>
                         <Td align="right">{s.hourlyRateOre === null ? "–" : formatSek(s.hourlyRateOre)}</Td>
                         <Td align="right">{s.estimatedCompensationOre === null ? "–" : formatSek(s.estimatedCompensationOre)}</Td>
                         <Td><span className="flex flex-wrap gap-1"><ApprovalBadge status={s.approvalStatus} />{s.phase !== "UPCOMING" ? <PhaseBadge phase={s.phase} /> : null}</span></Td>
