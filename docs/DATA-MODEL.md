@@ -7,7 +7,7 @@ Så hänger personal, arbetspass, lönehistorik och tidsregistrering ihop. Schem
 ## Översikt
 
 ```
-User ──1:0..1── Employee ──< PayRate                    timlön med giltighetsperioder
+User ──1:N── Employee ──< PayRate   (en anställning per arbetskategori)                    timlön med giltighetsperioder
  │                  │
  │                  ├──< Shift (assignedEmployeeId)     ansvarig just nu  → får timmarna
  │                  ├──< Shift (originalEmployeeId)     ursprunglig       → ändras aldrig
@@ -29,9 +29,9 @@ DailyClosing, DailyClosingAssignment   (dagsavslut, kopplas till anställd och a
 
 | Modell | Syfte | Fil |
 |---|---|---|
-| `User` | Inloggning och åtkomstroll (`ADMIN`, `GOLFSHOP`, `BOLLPLOCKARE`). `name` används bara för användare utan personalpost (Admin). | people |
-| `Session` | Databassession. `id` är SHA-256 av tokenen. | people |
-| `Employee` | Personen i personalregistret: namn, **arbetskategori**, status, kontaktuppgifter. Källan till alla namn som visas. | people |
+| `User` | Inloggning och åtkomstnivå. `role = ADMIN` får använda admininloggningen. Har 0–N anställningar. `name` används bara för användare utan personalpost. | people |
+| `Session` | Databassession. `id` är SHA-256 av tokenen. `context` (`ADMIN` / `EMPLOYEE`) anger vilken inloggning den kommer från och vilken panel den får använda. | people |
+| `Employee` | En anställning i personalregistret: namn, **arbetskategori**, status, kontaktuppgifter. Unik på (användare, kategori), så en person kan vara anställd i både Golfshop och Bollplockare. Källan till alla namn som visas. | people |
 | `Schedule` | Ett månadsschema per kategori (Schema A Golfshop, Schema B Bollplockare). Unik på (kategori, år, månad). | scheduling |
 | `SchedulePublication` | En rad per publicering (vem, när, hur många pass/anställda). | scheduling |
 | `Shift` | Ett arbetspass. Alltid kopplat till en ansvarig anställd. | scheduling |

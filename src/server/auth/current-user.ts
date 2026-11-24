@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { type Permission, ROLE_HOME, type UserRole, can } from "@/domain/roles";
+import { type Permission, type WorkCategory, can, homeFor } from "@/domain/roles";
 import { getDb } from "@/server/db";
 import { ForbiddenError, UnauthenticatedError } from "@/server/errors";
 import { readSessionToken } from "./session-cookie";
@@ -10,7 +10,10 @@ import { type SessionUser, validateSession } from "./session-store";
 /**
  * DATA ACCESS LAYER för autentisering. Alla sidor, layouts, Server Actions och Route Handlers
  * hämtar användaren HÄR – aldrig genom att lita på cookies, URL:er eller formulärfält.
- * proxy.ts gör bara en snabb, optimistisk kontroll; den här filen är den riktiga kontrollen.
+ * proxy.ts gör bara en optimistisk kontroll; den här filen är den riktiga kontrollen.
+ *
+ * TVÅ INLOGGNINGAR: en session är antingen en ADMIN-session eller en EMPLOYEE-session och kan
+ * bara använda den egna panelen, även om samma person har båda sorters åtkomst.
  */
 
 /** Aktuell användare (cachas under ett och samma anrop). null = ej inloggad. */
@@ -19,27 +22,51 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   return validateSession(getDb(), token);
 });
 
-/** För sidor/layouts: skickar ej inloggade till /login. */
+/** Sessionens egen startsida. */
+export function homeOf(session: SessionUser): string {
+  return homeFor(session.context, session.user.primaryCategory);
+}
+
+/** För sidor/layouts: skickar ej inloggade till inloggningsvalet. */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSessionUser();
   if (!session) redirect("/login");
   return session;
 }
 
-/** För layouts: fel roll skickas till sin egen startsida (URL-ändringar ger aldrig åtkomst). */
-export async function requireRole(...roles: UserRole[]): Promise<SessionUser> {
+/** Adminpanelen: kräver en ADMIN-session. Anställdsession studsas till sin egen startsida. */
+export async function requireAdminArea(): Promise<SessionUser> {
   const session = await requireUser();
-  if (!roles.includes(session.user.role)) redirect(ROLE_HOME[session.user.role]);
+  if (session.context !== "ADMIN") redirect(homeOf(session));
   return session;
 }
 
 /**
+ * Anställdpanelen för en arbetskategori: kräver en EMPLOYEE-session OCH en aktiv anställning i just
+ * den kategorin. Returnerar den anställning (`employee`) som panelen visar data för.
+ */
+export async function requireEmployeeArea(
+  category: WorkCategory,
+): Promise<{ session: SessionUser; employee: { id: string; category: WorkCategory } }> {
+  const session = await requireUser();
+  if (session.context !== "EMPLOYEE") redirect(homeOf(session));
+  const employee = session.user.employments.find((e) => e.category === category);
+  if (!employee) redirect(homeOf(session));
+  return { session, employee };
+}
+
+/**
  * För Server Actions och Route Handlers: kastar i stället för att omdirigera, så att
- * ett API-anrop aldrig kan lyckas utan behörighet.
+ * ett API-anrop aldrig kan lyckas utan behörighet. Behörighet följer SESSIONENS roll.
  */
 export async function requirePermission(permission: Permission): Promise<SessionUser> {
   const session = await getSessionUser();
   if (!session) throw new UnauthenticatedError();
-  if (!can(session.user.role, permission)) throw new ForbiddenError();
+  if (!can(session.user.actingRole, permission)) throw new ForbiddenError();
   return session;
+}
+
+/** Aktören (för tjänster och frågor) från sessionen: `role` är sessionens roll, inte kontots. */
+export function toActor(session: SessionUser): { id: string; role: SessionUser["user"]["actingRole"] } {
+  return { id: session.user.id, role: session.user.actingRole };
 }

@@ -6,7 +6,7 @@ meddela den andra utvecklaren** (se COLLABORATION.md). Kolumnen *Status* visar v
 
 ## Gemensamma konventioner
 
-- **Actor:** `type Actor = { id: string; role: UserRole }`, alltid hämtad från sessionen (`requirePermission()` / `requireRole()`), aldrig från indata.
+- **Actor:** `type Actor = { id: string; role: UserRole }`, alltid hämtad från sessionen (`requirePermission()` / `requireAdminArea()` / `requireEmployeeArea()`), aldrig från indata.
 - **Behörighet först:** varje tjänst börjar med `can(actor.role, '<permission>')` och kastar `ForbiddenError` annars. Matrisen finns i `src/domain/roles.ts`.
 - **Transaktion + revisionslogg:** skrivande tjänster tar `PrismaClient`, kör `db.$transaction(tx => …)` och anropar `writeAudit(tx, …)` i samma transaktion.
 - **Fel:** tjänster kastar `AppError`-typer (`src/server/errors.ts`): `UnauthenticatedError` 401, `ForbiddenError` 403, `NotFoundError` 404,
@@ -40,15 +40,16 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 
 | Funktion | Beskrivning | Status |
 |---|---|---|
-| `authenticate(db, { email, password, ipAddress }, now?)` → `{ ok, user } \| { ok:false, reason }` | Kontrollerar uppgifter, spärr efter 5 fel (15 min), revisionslogg | Finns, testad |
-| `createSession(db, userId, meta, now?)` → `{ token, expiresAt }` | Skapar session, sparar bara hash av token | Finns, testad |
+| `authenticate(db, { email, password, audience: 'ADMIN' \| 'EMPLOYEE', ipAddress }, now?)` → `{ ok, user, context } \| { ok:false, reason }` | Kontrollerar uppgifter och att kontot får använda just den inloggningen (`WRONG_AUDIENCE`), spärr efter 5 fel (15 min), revisionslogg | Finns, testad |
+| `createSession(db, userId, context, meta, now?)` → `{ token, expiresAt }` | Skapar session med inloggningstyp, sparar bara hash av token | Finns, testad |
 | `validateSession(db, token, now?)` → `SessionUser \| null` | Giltighet, inaktivitet, aktiv användare. Ger roll, visningsnamn, `employee` | Finns, testad |
 | `revokeSession`, `revokeAllUserSessions`, `purgeExpiredSessions` | Utloggning, "logga ut överallt", underhåll | Finns, testade |
-| `getSessionUser()`, `requireUser()`, `requireRole(...roles)`, `requirePermission(perm)` | Data Access Layer för sidor, layouts, actions, handlers | Finns, verifierade i webbläsare |
+| `getSessionUser()`, `requireUser()`, `requireAdminArea()`, `requireEmployeeArea(category)`, `requirePermission(perm)`, `toActor(session)` | Data Access Layer. Admin- respektive anställdpanelen kräver rätt inloggningstyp (och anställning i kategorin) | Finns, verifierade i webbläsare |
 | `hashPassword`, `verifyPassword`, `validatePasswordStrength` | Argon2id, minst 12 tecken | Finns, testade |
 | Byte och återställning av lösenord; admin skapar konto | | Planerad (Etapp 2) |
 
-`SessionUser.user` = `{ id, email, role, displayName, firstName, employee: { id, category } | null }`.
+`SessionUser` = `{ sessionId, context, user: { id, email, role, actingRole, displayName, firstName, employments: { id, category }[], primaryCategory } }`.
+`role` är kontots åtkomstnivå, `actingRole` är **sessionens** roll (ADMIN i adminsession, annars personalroll) och är den som alla behörighetskontroller använder.
 
 ## Domänfunktioner (`src/domain/`, rena och enhetstestade)
 
@@ -58,7 +59,9 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 | `time` | `stockholmDateOf`, `localToInstant(date, time)`, `minutesBetween`, `monthBounds(year, month)`, `stockholmYearMonth`, `dateStringToDbDate`, `dbDateToString`, `formatTimeRange`, `formatDateLong/Short`, `formatMonthYear` |
 | `shifts` | `analyzeShift` (automatiska kontroller), `validateShiftTimes`, `intervalsOverlap`, `isMaterialShiftChange`, `hasShiftEnded`, `hasBlockingIssues` |
 | `pay-rates` | `resolveRateForDate`, `planRateChange`, `findOverlap` |
-| `roles` | `can`, `permissionsOf`, `ROLE_HOME`, `categoryForRole`, `roleForCategory`, `safeInternalPath` |
+| `roles` | `can`, `permissionsOf`, `canUseAudience`, `actingRoleFor`, `primaryCategory`, `homeFor`, `isPathAllowedForContext`, `CATEGORY_HOME`, `safeInternalPath` |
+| `hours` | `shiftPhase`, `summarizeShifts` (genomfört / återstående), `estimateCompensation` (preliminär, bara genomförda pass), `nextShift` |
+| `calendar` | `parseMonthParam`, `monthParam`, `shiftMonth`, `buildMonthGrid` |
 
 ## Tjänster
 
@@ -67,6 +70,11 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 | `changeHourlyRate(db, actor, { employeeId, hourlyRateOre, effectiveFrom, reason? })` | `payrates:write` | **Finns, testad** (Test 10, 11) |
 | `listPayRateHistory(db, actor, employeeId)` | `payrates:read:all` | **Finns, testad** |
 | `getRateForWorkDate(db, actor, employeeId, 'YYYY-MM-DD')` | `payrates:read:all` | **Finns, testad** |
+| `getAdminDashboard(db, actor, now)` | `employees:read:all`, `payrates:read:all`, `worktime:read:all`, `schedule:read:all`, `swap:read:all` | **Finns, testad** |
+| `getPersonnelOverview(db, actor, { year, month, category?, search? })` (lön, genomfört, kommande, preliminär ersättning, nästa pass) | `employees:read:all`, `payrates:read:all`, `worktime:read:all` | **Finns, testad** |
+| `getEmployeeProfile(db, actor, employeeId, { year, month })` | samma | **Finns, testad** |
+| `getScheduleMonth(db, actor, { year, month, category? })` (hela schemat, namn vid varje pass) | `schedule:read:all` | **Finns, testad** |
+| `getMyMonth(db, actor, { userId, employeeId, year, month })` (anställds egna publicerade pass och timmar, avgränsas på `userId`) | `shift:read:own` | **Finns, testad** |
 | `createEmployee / updateEmployee / deactivateEmployee` | `employees:write` | Planerad, Etapp 2 |
 | `createShift / updateShift / cancelShift / copyWeek / copyMonth` (kör `analyzeShift`) | `schedule:write` | Planerad, Etapp 2 |
 | `publishSchedule(scheduleId)` | `schedule:publish` | Planerad, Etapp 2 |

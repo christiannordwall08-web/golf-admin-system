@@ -43,6 +43,53 @@ export function isRoleConsistentWithCategory(role: UserRole, category: WorkCateg
   return categoryForRole(role) === category;
 }
 
+/**
+ * TVÅ INLOGGNINGAR. En session har alltid en `context`:
+ *  - ADMIN:    admininloggningen. Kräver User.role === ADMIN. Ger adminpanelen och alla adminbehörigheter.
+ *  - EMPLOYEE: anställdinloggningen. Kräver minst en aktiv anställning. Ger bara den egna panelen
+ *              (Golfshop och/eller Bollplockare) och de egna personalbehörigheterna.
+ * En person kan vara båda (t.ex. ägaren som också jobbar). Då avgör inloggningen som användes vad
+ * sessionen får göra: i en anställdsession ser man aldrig andras löner, även om kontot också är admin.
+ */
+export const SESSION_CONTEXTS = ["ADMIN", "EMPLOYEE"] as const;
+export type SessionContext = (typeof SESSION_CONTEXTS)[number];
+
+export const CATEGORY_HOME: Record<WorkCategory, string> = {
+  GOLFSHOP: "/golfshop",
+  BOLLPLOCKARE: "/bollplockare",
+};
+
+/** Får användaren använda den här inloggningen? (`employmentCount` = antal aktiva anställningar.) */
+export function canUseAudience(role: UserRole, audience: SessionContext, employmentCount: number): boolean {
+  return audience === "ADMIN" ? role === "ADMIN" : employmentCount > 0;
+}
+
+/** Den roll vars behörigheter gäller i sessionen. Anställd ⇒ Golfshop om man har den, annars Bollplockare. */
+export function actingRoleFor(context: SessionContext, categories: readonly WorkCategory[]): UserRole {
+  if (context === "ADMIN") return "ADMIN";
+  return categories.includes("GOLFSHOP") ? "GOLFSHOP" : "BOLLPLOCKARE";
+}
+
+/** Främsta arbetsplatsen: personalrollens egen kategori om den finns, annars Golfshop före Bollplockare. */
+export function primaryCategory(role: UserRole, categories: readonly WorkCategory[]): WorkCategory | null {
+  if (categories.length === 0) return null;
+  const own = categoryForRole(role);
+  if (own && categories.includes(own)) return own;
+  return categories.includes("GOLFSHOP") ? "GOLFSHOP" : "BOLLPLOCKARE";
+}
+
+/** Startsida för en session. */
+export function homeFor(context: SessionContext, primary: WorkCategory | null): string {
+  if (context === "ADMIN") return "/admin";
+  return primary ? CATEGORY_HOME[primary] : "/login";
+}
+
+/** Får en session med den här inloggningen skickas till `path` efter inloggning? */
+export function isPathAllowedForContext(context: SessionContext, path: string): boolean {
+  const starts = (prefix: string) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`);
+  return context === "ADMIN" ? starts("/admin") : starts("/golfshop") || starts("/bollplockare");
+}
+
 const ALL_PERMISSIONS = [
   // Personal
   "employees:read:all",

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { DbClient } from "@/server/db-client";
-import type { UserRole, WorkCategory } from "@/domain/roles";
+import { type SessionContext, type UserRole, type WorkCategory, actingRoleFor, primaryCategory } from "@/domain/roles";
 import { SESSION_ABSOLUTE_MS, SESSION_IDLE_MS, SESSION_TOUCH_INTERVAL_MS } from "./constants";
 
 /**
@@ -10,14 +10,22 @@ import { SESSION_ABSOLUTE_MS, SESSION_IDLE_MS, SESSION_TOUCH_INTERVAL_MS } from 
 
 export type SessionUser = {
   sessionId: string;
+  /** Vilken inloggning sessionen kommer från. Styr vilken panel och vilka behörigheter som gäller. */
+  context: SessionContext;
   user: {
     id: string;
     email: string;
+    /** Kontots åtkomstnivå (ADMIN får använda admininloggningen). Använd actingRole för behörighetskontroller. */
     role: UserRole;
-    /** Visningsnamn: personalens namn från personalregistret, annars User.name. */
+    /** Rollen vars behörigheter gäller i DEN HÄR sessionen (ADMIN i adminsession, annars personalroll). */
+    actingRole: UserRole;
+    /** Visningsnamn: personalregistrets namn om personen är anställd, annars User.name. */
     displayName: string;
     firstName: string | null;
-    employee: { id: string; category: WorkCategory } | null;
+    /** Aktiva anställningar (en per arbetskategori). */
+    employments: { id: string; category: WorkCategory }[];
+    /** Främsta arbetsplats (för startsida och standardpanel). */
+    primaryCategory: WorkCategory | null;
   };
 };
 
@@ -32,6 +40,7 @@ export function hashToken(token: string): string {
 export async function createSession(
   db: DbClient,
   userId: string,
+  context: SessionContext,
   meta: { ipAddress?: string | null; userAgent?: string | null } = {},
   now: Date = new Date(),
 ): Promise<{ token: string; expiresAt: Date }> {
@@ -41,6 +50,7 @@ export async function createSession(
     data: {
       id: hashToken(token),
       userId,
+      context,
       expiresAt,
       lastSeenAt: now,
       ipAddress: meta.ipAddress?.slice(0, 64) ?? null,
@@ -62,14 +72,24 @@ export async function validateSession(
     where: { id },
     include: {
       user: {
-        include: { employee: { select: { id: true, firstName: true, lastName: true, category: true } } },
+        include: {
+          employees: {
+            where: { status: "ACTIVE" },
+            select: { id: true, firstName: true, lastName: true, category: true },
+            orderBy: { category: "asc" },
+          },
+        },
       },
     },
   });
   if (!session) return null;
 
+  const { user } = session;
   const idleExpired = now.getTime() - session.lastSeenAt.getTime() > SESSION_IDLE_MS;
-  if (session.expiresAt <= now || idleExpired || !session.user.isActive) {
+  // En session är bara giltig om kontot fortfarande får använda inloggningen den skapades med.
+  const stillEligible =
+    session.context === "ADMIN" ? user.role === "ADMIN" : user.employees.length > 0;
+  if (session.expiresAt <= now || idleExpired || !user.isActive || !stillEligible) {
     await db.session.deleteMany({ where: { id } });
     return null;
   }
@@ -78,17 +98,20 @@ export async function validateSession(
     await db.session.update({ where: { id }, data: { lastSeenAt: now } });
   }
 
-  const { user } = session;
-  const employee = user.employee;
+  const categories = user.employees.map((e) => e.category);
+  const registryPerson = user.employees[0];
   return {
     sessionId: id,
+    context: session.context,
     user: {
       id: user.id,
       email: user.email,
       role: user.role,
-      displayName: employee ? `${employee.firstName} ${employee.lastName}` : (user.name ?? user.email),
-      firstName: employee ? employee.firstName : (user.name?.split(" ")[0] ?? null),
-      employee: employee ? { id: employee.id, category: employee.category } : null,
+      actingRole: actingRoleFor(session.context, categories),
+      displayName: registryPerson ? `${registryPerson.firstName} ${registryPerson.lastName}` : (user.name ?? user.email),
+      firstName: registryPerson ? registryPerson.firstName : (user.name?.split(" ")[0] ?? null),
+      employments: user.employees.map((e) => ({ id: e.id, category: e.category })),
+      primaryCategory: primaryCategory(user.role, categories),
     },
   };
 }

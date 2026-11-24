@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Brand } from "./brand";
@@ -9,7 +9,7 @@ import type { NavItem } from "./nav-config";
 import { NavLinks } from "./nav-links";
 
 /** Utfällbar meny för mobil/surfplatta (dolds på stora skärmar där sidofältet visas). */
-export function MobileNav({ items }: { items: NavItem[] }) {
+export function MobileNav({ items, extra }: { items: NavItem[]; extra?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -45,6 +45,7 @@ export function MobileNav({ items }: { items: NavItem[] }) {
                   </Button>
                 </div>
                 <NavLinks items={items} onNavigate={() => setOpen(false)} />
+                {extra ? <div className="mt-auto border-t border-line pt-4">{extra}</div> : null}
               </div>
             </div>,
             document.body,

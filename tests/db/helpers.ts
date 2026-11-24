@@ -81,6 +81,8 @@ export async function makeShift(
     to: string;
     category?: WorkCategory;
     workStatus?: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "ABSENT";
+    publicationStatus?: "DRAFT" | "PUBLISHED";
+    approvalStatus?: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
     endDate?: string;
   },
 ) {
@@ -103,6 +105,8 @@ export async function makeShift(
       endsAt,
       localDate: dateStringToDbDate(stockholmDateOf(startsAt)),
       workStatus: input.workStatus ?? "SCHEDULED",
+      publicationStatus: input.publicationStatus ?? "DRAFT",
+      approvalStatus: input.approvalStatus ?? "PENDING",
       createdById: input.createdById,
     },
   });

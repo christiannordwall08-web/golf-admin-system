@@ -7,8 +7,8 @@ bollplockarna i samma system. Det här dokumentet är **förslaget till gränssn
 
 | Behov | Så här |
 |---|---|
-| Inloggning och roll | `requireRole("BOLLPLOCKARE")` i layout och sidor, `requirePermission(...)` i actions/handlers. Se `src/app/bollplockare/` och `src/server/auth/current-user.ts`. |
-| Vem är inloggad | `session.user.employee.id` (personalregistret) och `session.user.displayName`. Namn kommer alltid från `Employee`. |
+| Inloggning och roll | `requireEmployeeArea("BOLLPLOCKARE")` i layout och sidor (kräver en Anställd-session och en aktiv anställning i Bollplockare), `requirePermission(...)` i actions/handlers. Se `src/components/employee/` och `src/server/auth/current-user.ts`. |
+| Vem är inloggad | `requireEmployeeArea("BOLLPLOCKARE")` ger `employee.id` (din anställning i personalregistret). `session.user.displayName` är namnet. Namn kommer alltid från `Employee`. En person kan ha anställning i både Golfshop och Bollplockare. |
 | Personalregister och scheman | Admin skapar bollplockare (`Employee.category = BOLLPLOCKARE`) och pass i Schema B (`Schedule.category = BOLLPLOCKARE`). |
 | Mina pass | `db.shift.findMany({ where: { assignedEmployeeId: employee.id, category: "BOLLPLOCKARE", publicationStatus: "PUBLISHED" } })` |
 | Timlön | Hanteras av Admin (`PayRate`). Bollplockare-koden läser eller räknar aldrig lön. |

@@ -8,7 +8,8 @@ som delas (databasschema, `src/domain`, `src/server`, `src/components/ui`).
 1. **Pengar är heltal i ören**, aldrig flyttal. Använd `src/domain/money.ts`.
 2. **Tid:** tidpunkter lagras som UTC (`timestamptz`), kalenderdatum som Stockholm-datum (`@db.Date`). Använd `src/domain/time.ts`.
    Räkna aldrig dag/månad med `new Date().getDate()` eller liknande.
-3. **Behörighet kontrolleras på servern**, alltid: `requireRole()` i layouts/sidor, `requirePermission()` i Server Actions och
+3. **Två inloggningar, behörighet på servern, alltid:** `requireAdminArea()` (adminpanelen) och `requireEmployeeArea(kategori)` (anställdpanelen) i layouts OCH sidor,
+   `requirePermission()` i Server Actions och
    Route Handlers, och `can(actor.role, …)` i tjänster. Att dölja en knapp är aldrig skydd. Behörighetsmatrisen finns på ett ställe:
    `src/domain/roles.ts`.
 4. **Namn kommer alltid från personalregistret** (`Employee`) via relation, aldrig hårdkodade eller kopierade.
@@ -20,9 +21,11 @@ som delas (databasschema, `src/domain`, `src/server`, `src/components/ui`).
    onödiga personuppgifter i loggen.
 8. **Ingen testdata i produktion.** Testdata har `isTestData = true` och skapas bara av `prisma/seed-demo.ts`.
 9. **Ändra aldrig en migration som redan finns i `main`.** Skapa en ny. Tabeller/kolumner raderas inte, de utgår.
-10. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
+10. **En session har en inloggningstyp** (`ADMIN` eller `EMPLOYEE`). Använd `session.user.actingRole` (sessionens roll) för behörigheter, aldrig `session.user.role`
+    (kontots åtkomstnivå). Personal-läsfrågor tar `userId` från sessionen och avgränsar själva (`src/server/queries/self.ts`).
+11. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
     Lägg aldrig `DEV_PREVIEW` i `.env`. Rör inte spärrarna utan att uppdatera `tests/unit/dev-preview.test.ts`.
-11. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
+12. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
 
 ## Next.js 16 är inte den Next.js du känner till
 

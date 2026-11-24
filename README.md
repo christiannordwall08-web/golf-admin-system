@@ -3,9 +3,21 @@
 Administrationssystem för golfanläggningens personal: scheman, passbyten, arbetstid, löneunderlag och dagsavslut.
 En gemensam webbapplikation för tre roller: **Admin**, **Golfshop** och **Bollplockare**.
 
-> **Status: Etapp 1 (grundstruktur) är klar.** Inloggning, roller, databas, designsystem och domänlogik finns och är testade.
-> Admin-funktioner (personal, schema, rapporter), Golfshop-panelen och dagsavslut byggs i Etapp 2–5.
-> Se [Etapper och status](#etapper-och-status).
+> **Status:** Etapp 1 (grundstruktur) är klar och Admin har fått sina första riktiga sidor. Det finns **två separata inloggningar**
+> (Admin och Anställd), en adminöversikt, personal med löner och timmar, och hela scheman för Golfshop och Bollplockare (visning).
+> Anställd ser sin egen start, sitt schema och sina timmar. Att skapa/ändra pass, passbyten, godkänd arbetstid, rapporter och dagsavslut
+> byggs i kommande etapper. Se [Etapper och status](#etapper-och-status).
+
+## Två inloggningar
+
+| Inloggning | Adress | Vem | Vad man ser |
+|---|---|---|---|
+| **Admin** | `/login/admin` | Konton med admin-åtkomst | Översikt, **alla anställda med timlön, arbetade och kommande timmar**, personalprofiler och **hela scheman för både Golfshop och Bollplockare** |
+| **Anställd** | `/login/anstalld` | Alla med minst en aktiv anställning | Bara det egna: start, **mitt schema**, **mina timmar** i golfshopen och/eller som bollplockare |
+
+Valet görs på `/login`. En person kan vara båda (till exempel ägaren som också jobbar) och kan ha anställning i både Golfshop och Bollplockare.
+**Inloggningen som användes styr vad sessionen får göra:** i en Anställd-session ser man aldrig andras löner eller timmar, även om kontot också är admin
+(testat i `tests/db/auth.test.ts` och `tests/db/queries.test.ts`).
 
 ## Kom igång
 
@@ -20,8 +32,8 @@ npm run db:seed:demo        # valfritt: tydligt märkt testdata (skriver ut lös
 npm run dev                 # startar appen på http://localhost:3000
 ```
 
-Testinloggningar efter `db:seed:demo` (alla på `@demo.test`): `admin@demo.test`, `erik.andersson@demo.test` (Golfshop),
-`lisa.svensson@demo.test` (Golfshop), `oscar.nilsson@demo.test` och `emma.karlsson@demo.test` (Bollplockare).
+Testinloggningar efter `db:seed:demo` (alla på `@demo.test`): `admin@demo.test` (Admin) samt anställda i Golfshop (`erik.andersson`, `lisa.svensson`,
+`sara.lindqvist`) och Bollplockare (`oscar.nilsson`, `emma.karlsson`, `viktor.holm`), med timlön och testschema för innevarande och nästa månad.
 Sätt `DEV_SEED_PASSWORD` i miljön för att välja lösenord själv, annars slumpas ett.
 
 > **npm 11 och installationsskript:** npm 11 blockerar skript i beroenden som standard. `package.json` tillåter (`allowScripts`) bara det som behövs för
@@ -38,14 +50,17 @@ npm run preview
 ```
 
 Det startar lokal databas, skapar tabeller, lägger in testdata och startar appen i **förhandsvisningsläge**. Öppna adressen som skrivs ut
-(vanligtvis `http://localhost:3000`; är porten upptagen väljer Next.js nästa lediga). Du hamnar direkt i Admin-vyn utan lösenord.
-Nere till höger finns en växlare (Admin · Golfshop · Bollplockare), och `/dev` visar alla vyer samt ett **komponentgalleri** (`/dev/design`).
-Ctrl+C stoppar allt.
+(vanligtvis `http://localhost:3000`; är porten upptagen väljer Next.js nästa lediga). Ctrl+C stoppar allt.
 
-Förhandsvisningen går att slå på **bara** när alla fyra villkor gäller: `DEV_PREVIEW=1` (sätts av `npm run preview`, aldrig i `.env`),
-`NODE_ENV=development`, lokal databas, och den kan bara logga in som de fasta testkontona (`isTestData`, `@demo.test`).
-I ett produktionsbygge ger `/dev` alltid 404, även om `DEV_PREVIEW=1` sätts av misstag (testat). Den skapar en vanlig session,
-så alla roll- och behörighetskontroller gäller som vanligt.
+1. Första gången ser du **Skapa ditt konto**: skriv bara **förnamn och efternamn**. Kontot blir administratör och anställd i både Golfshop och
+   Bollplockare, med timlön och testschema.
+2. Du kommer direkt in i **Admin**. Växlaren nere till höger (Admin · Anställd Golfshop · Anställd Bollplockare) byter inloggning med samma person.
+   `/dev` visar valen, och `/dev/design` är ett komponentgalleri.
+
+Förhandsvisningen går att slå på **bara** när alla villkor gäller: `DEV_PREVIEW=1` (sätts av `npm run preview`, aldrig i `.env`),
+`NODE_ENV=development`, lokal databas, och den kan bara logga in som testprofiler (`isTestData`, `@demo.test`).
+I ett produktionsbygge ger `/dev` alltid 404, även om `DEV_PREVIEW=1` sätts av misstag (testat). Den skapar en vanlig session med rätt
+inloggningstyp, så alla roll- och behörighetskontroller gäller som vanligt.
 
 ## Kommandon
 
@@ -92,8 +107,8 @@ docs/                 Arkitektur, datamodell, API-kontrakt, samarbetsregler, Bol
 | Etapp | Innehåll | Status |
 |---|---|---|
 | 1 | Grundstruktur, databas, roller, inloggning, designsystem, dokumentation | **Klar** |
-| 2 | Admin: dashboard, personalregister, profiler, scheman, publicering | Ej påbörjad |
-| 3 | Golfshop: startsida, schema, godkännande, passbyten | Ej påbörjad |
+| 2 | Admin: dashboard, personalregister, profiler, scheman, publicering | **Delvis:** dashboard, personal & löner, profil och schema (visning) klara. Skapa/ändra/publicera pass, personhantering och lösenord återstår |
+| 3 | Golfshop: startsida, schema, godkännande, passbyten | **Delvis:** start, mitt schema och mina timmar klara. Godkänna pass och passbyten återstår |
 | 4 | Automatisk tidsregistrering, timlön, månadsrapporter, export | Ej påbörjad |
 | 5 | Dagsavslut (bilduppladdning, lagring, notiser) | Ej påbörjad |
 | 6 | Kvalitet, säkerhetstest, integration med Bollplockare, driftsättning | Ej påbörjad |

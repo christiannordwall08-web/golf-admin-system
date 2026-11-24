@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PREVIEW_ACCOUNTS, isDevPreviewEnabled, roleFromSegment } from "@/server/dev-preview";
+import { isDevPreviewEnabled, modeFromSegment } from "@/server/dev-preview";
+import { normalizePersonName, previewEmailBase } from "@/server/dev-preview-profile";
 
 const base = {
   DEV_PREVIEW: "1",
@@ -38,16 +39,27 @@ describe("isDevPreviewEnabled – förhandsvisning får aldrig kunna slås på i
   });
 });
 
-describe("testkonton och roller", () => {
-  it("alla förhandsvisningskonton är på den reserverade testdomänen", () => {
-    for (const email of Object.values(PREVIEW_ACCOUNTS)) expect(email.endsWith("@demo.test")).toBe(true);
+describe("lägen och namn", () => {
+  it("modeFromSegment tolkar bara admin, golfshop och bollplockare", () => {
+    expect(modeFromSegment("admin")).toBe("admin");
+    expect(modeFromSegment("Golfshop")).toBe("golfshop");
+    expect(modeFromSegment("bollplockare")).toBe("bollplockare");
+    expect(modeFromSegment("root")).toBeNull();
+    expect(modeFromSegment("")).toBeNull();
   });
 
-  it("roleFromSegment tolkar bara de tre rollerna", () => {
-    expect(roleFromSegment("admin")).toBe("ADMIN");
-    expect(roleFromSegment("Golfshop")).toBe("GOLFSHOP");
-    expect(roleFromSegment("bollplockare")).toBe("BOLLPLOCKARE");
-    expect(roleFromSegment("root")).toBeNull();
-    expect(roleFromSegment("")).toBeNull();
+  it("normalizePersonName släpper igenom riktiga namn (även å ä ö) och avvisar skräp", () => {
+    expect(normalizePersonName("  Åke   ")).toBe("Åke");
+    expect(normalizePersonName("Anna-Lena")).toBe("Anna-Lena");
+    expect(normalizePersonName("O'Brien")).toBe("O'Brien");
+    expect(normalizePersonName("Maria  Del  Mar")).toBe("Maria Del Mar");
+    for (const bad of ["", "   ", "123", "Anna<script>", "a".repeat(61), "-Anna", "Anna; DROP TABLE"]) {
+      expect(normalizePersonName(bad)).toBeNull();
+    }
+  });
+
+  it("e-postbasen rensar diakritiska tecken och specialtecken", () => {
+    expect(previewEmailBase("Åke", "Öberg")).toBe("ake.oberg");
+    expect(previewEmailBase("Anna-Lena", "Testsson")).toBe("annalena.testsson");
   });
 });

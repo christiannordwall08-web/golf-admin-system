@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { ROLE_HOME, safeInternalPath } from "@/domain/roles";
+import { homeFor, isPathAllowedForContext, primaryCategory, safeInternalPath } from "@/domain/roles";
 import { authenticate } from "@/server/auth/login";
 import { clearSessionCookie, readSessionToken, setSessionCookie } from "@/server/auth/session-cookie";
 import { createSession, revokeSession } from "@/server/auth/session-store";
@@ -16,6 +16,7 @@ export type LoginState = { error?: string; email?: string };
 const loginSchema = z.object({
   email: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(128),
+  audience: z.enum(["ADMIN", "EMPLOYEE"]),
   next: z.string().max(500).optional(),
 });
 
@@ -33,25 +34,45 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
-    next: formData.get("next") ?? undefined,
+    audience: formData.get("audience"),
+    next: formData.get("next") || undefined,
   });
   if (!parsed.success) return { error: "Fyll i e-postadress och lösenord.", email: submittedEmail };
 
   const db = getDb();
   const h = await headers();
   const ipAddress = clientIp(h);
+  const { audience } = parsed.data;
 
-  const result = await authenticate(db, { email: parsed.data.email, password: parsed.data.password, ipAddress });
-  if (!result.ok) return { error: GENERIC_ERROR, email: parsed.data.email };
+  const result = await authenticate(db, { email: parsed.data.email, password: parsed.data.password, audience, ipAddress });
+  if (!result.ok) {
+    if (result.reason === "WRONG_AUDIENCE") {
+      return {
+        error:
+          audience === "ADMIN"
+            ? "Det här kontot är inte administratör. Logga in som Anställd i stället."
+            : "Det här kontot är inte registrerat som anställd. Logga in som Admin i stället.",
+        email: parsed.data.email,
+      };
+    }
+    return { error: GENERIC_ERROR, email: parsed.data.email };
+  }
 
-  const { token, expiresAt } = await createSession(db, result.user.id, {
+  const { token, expiresAt } = await createSession(db, result.user.id, result.context, {
     ipAddress,
     userAgent: h.get("user-agent"),
   });
   await setSessionCookie(token, expiresAt);
 
-  // `next` accepteras bara som intern sökväg. Fel roll studsas av layouten till egen startsida.
-  redirect(safeInternalPath(parsed.data.next, ROLE_HOME[result.user.role]));
+  // Startsida efter inloggningstyp. `next` får bara vara en intern sökväg som hör till inloggningen.
+  const employments = await db.employee.findMany({
+    where: { userId: result.user.id, status: "ACTIVE" },
+    select: { category: true },
+  });
+  const primary = primaryCategory(result.user.role, employments.map((e) => e.category));
+  const home = homeFor(result.context, primary);
+  const next = safeInternalPath(parsed.data.next, home);
+  redirect(isPathAllowedForContext(result.context, next) ? next : home);
 }
 
 export async function logoutAction(): Promise<void> {
@@ -59,3 +80,4 @@ export async function logoutAction(): Promise<void> {
   await clearSessionCookie();
   redirect(isDevPreviewEnabled() ? "/dev" : "/login");
 }
+

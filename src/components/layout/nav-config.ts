@@ -19,23 +19,28 @@ export type NavItem = {
 
 /**
  * Navigering per roll. Lägg bara till `soon: false` (utelämna) när sidan faktiskt finns.
- * Golfshop och Admin ägs av samma utvecklare; Bollplockare-menyn ägs av Bollplockare-utvecklaren.
+ * Golfshop och Admin ägs av samma utvecklare; Bollplockare-menyn ägs av Bollplockare-utvecklaren
+ * (sidorna delar tills vidare komponenter med Golfshop, se src/components/employee).
  */
 export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   ADMIN: [
     { href: "/admin", label: "Översikt", icon: "dashboard" },
-    { href: "/admin/personal", label: "Personal", icon: "users", soon: true },
-    { href: "/admin/schema", label: "Schema", icon: "calendar", soon: true },
+    { href: "/admin/personal", label: "Personal & löner", icon: "users" },
+    { href: "/admin/schema", label: "Schema", icon: "calendar" },
     { href: "/admin/passbyten", label: "Passbyten", icon: "swap", soon: true },
     { href: "/admin/rapporter", label: "Arbetstid & rapporter", icon: "report", soon: true },
     { href: "/admin/dagsavslut", label: "Dagsavslut", icon: "camera", soon: true },
   ],
   GOLFSHOP: [
     { href: "/golfshop", label: "Start", icon: "dashboard" },
-    { href: "/golfshop/schema", label: "Mitt schema", icon: "calendar", soon: true },
-    { href: "/golfshop/timmar", label: "Mina timmar", icon: "clock", soon: true },
+    { href: "/golfshop/schema", label: "Mitt schema", icon: "calendar" },
+    { href: "/golfshop/timmar", label: "Mina timmar", icon: "clock" },
     { href: "/golfshop/byten", label: "Passbyten", icon: "swap", soon: true },
     { href: "/golfshop/dagsavslut", label: "Dagsavslut", icon: "camera", soon: true },
   ],
-  BOLLPLOCKARE: [{ href: "/bollplockare", label: "Start", icon: "dashboard" }],
+  BOLLPLOCKARE: [
+    { href: "/bollplockare", label: "Start", icon: "dashboard" },
+    { href: "/bollplockare/schema", label: "Mitt schema", icon: "calendar" },
+    { href: "/bollplockare/timmar", label: "Mina timmar", icon: "clock" },
+  ],
 };

@@ -7,6 +7,12 @@ enum UserRole {
   BOLLPLOCKARE
 }
 
+/// Vilken inloggning en session kommer från.
+enum SessionContext {
+  ADMIN
+  EMPLOYEE
+}
+
 /// Arbetskategori (vilken personalgrupp/schema en anställd tillhör).
 enum WorkCategory {
   GOLFSHOP

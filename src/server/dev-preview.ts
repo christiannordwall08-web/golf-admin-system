@@ -1,23 +1,20 @@
-import type { UserRole } from "@/domain/roles";
+import type { WorkCategory } from "@/domain/roles";
 import type { DbClient } from "@/server/db-client";
 
 /**
- * FÖRHANDSVISNINGSLÄGE för lokal utveckling: gör att man kan titta på alla rollers vyer utan lösenord.
+ * FÖRHANDSVISNINGSLÄGE för lokal utveckling: gör att man kan titta på alla paneler utan lösenord.
  *
  * Säkerhetsmodell (alla villkor måste vara sanna):
  *  1. DEV_PREVIEW=1 sätts av `npm run preview` – aldrig i .env eller i drift.
  *  2. NODE_ENV === "development". `next build` / `next start` är alltid "production" ⇒ läget är då omöjligt att slå på.
  *  3. DATABASE_URL pekar på en lokal databas.
- *  4. Läget kan bara logga in som de fasta TESTKONTON som `npm run db:seed:demo` skapar (isTestData = true, @demo.test).
+ *  4. Läget kan bara logga in som ett TESTKONTO (isTestData = true, e-post @demo.test) som skapats i förhandsvisningen.
  *     Det går aldrig att logga in som en riktig användare den vägen.
- * Roll- och behörighetskontrollerna (`requireRole` m.fl.) är oförändrade: förhandsvisning skapar en vanlig session.
+ * Förhandsvisning skapar en vanlig session (med rätt inloggningstyp), så alla roll- och behörighetskontroller gäller.
  */
 
-export const PREVIEW_ACCOUNTS: Record<UserRole, string> = {
-  ADMIN: "admin@demo.test",
-  GOLFSHOP: "erik.andersson@demo.test",
-  BOLLPLOCKARE: "oscar.nilsson@demo.test",
-};
+/** Cookie som pekar ut förhandsvisningens testprofil. Det är ingen inloggning, bara ett val av testkonto. */
+export const PREVIEW_COOKIE = "golf_dev_profile";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -32,24 +29,24 @@ export function isDevPreviewEnabled(env: Record<string, string | undefined> = pr
   }
 }
 
-/** Testkontot för en roll, eller null om testdata saknas. Hittar aldrig en riktig användare. */
-export async function findPreviewUser(db: DbClient, role: UserRole): Promise<{ id: string; role: UserRole } | null> {
-  return db.user.findFirst({
-    where: { email: PREVIEW_ACCOUNTS[role], role, isTestData: true, isActive: true },
-    select: { id: true, role: true },
-  });
+export type PreviewMode = "admin" | WorkCategoryMode;
+type WorkCategoryMode = Lowercase<WorkCategory>;
+
+/** URL-segment -> läge ("admin" = adminpanelen, annars anställd i den kategorin), annars null. */
+export function modeFromSegment(segment: string): PreviewMode | null {
+  const s = segment.toLowerCase();
+  return s === "admin" || s === "golfshop" || s === "bollplockare" ? s : null;
 }
 
-/** URL-segment ("admin") -> roll, annars null. */
-export function roleFromSegment(segment: string): UserRole | null {
-  switch (segment.toLowerCase()) {
-    case "admin":
-      return "ADMIN";
-    case "golfshop":
-      return "GOLFSHOP";
-    case "bollplockare":
-      return "BOLLPLOCKARE";
-    default:
-      return null;
-  }
+/** Testprofilen med givet id, eller null. Hittar aldrig en riktig användare. */
+export async function findPreviewProfile(
+  db: DbClient,
+  userId: string | undefined,
+): Promise<{ id: string; name: string } | null> {
+  if (!userId) return null;
+  const user = await db.user.findFirst({
+    where: { id: userId, isTestData: true, isActive: true, role: "ADMIN", email: { endsWith: "@demo.test" } },
+    select: { id: true, name: true, email: true },
+  });
+  return user ? { id: user.id, name: user.name ?? user.email } : null;
 }

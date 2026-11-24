@@ -2,9 +2,9 @@
 // PERSONAL OCH INLOGGNING
 // User     = inloggning + åtkomstroll (vad får personen göra?)
 // Employee = personen i personalregistret + arbetskategori (var arbetar personen?)
-// Invariant (säkras i tjänstelagret, se src/server/domain/roles.ts):
-//   User.role === ADMIN             => Employee behövs inte
-//   User.role === GOLFSHOP|BOLLPLOCKARE => Employee.category har samma värde
+// Två inloggningar: Admin (kräver User.role = ADMIN) och Anställd (kräver minst en aktiv Employee).
+// En person kan vara båda, och kan ha en anställning per arbetskategori. Sessionens `context`
+// avgör vilken panel sessionen får använda. Se src/domain/roles.ts och docs/ARCHITECTURE.md.
 // =============================================================================
 
 model User {
@@ -25,7 +25,8 @@ model User {
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
 
-  employee      Employee?
+  /// En person kan ha flera anställningar (en per arbetskategori), t.ex. både Golfshop och Bollplockare.
+  employees     Employee[]
   sessions      Session[]
   notifications Notification[]
 
@@ -48,15 +49,17 @@ model User {
 
 model Session {
   /// SHA-256 (hex) av sessionstoken. Själva token finns bara i användarens cookie.
-  id         String   @id
+  id         String         @id
   userId     String
-  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
   /// Absolut maxlängd.
-  expiresAt  DateTime @db.Timestamptz(3)
+  expiresAt  DateTime       @db.Timestamptz(3)
   /// För inaktivitetstidsgräns.
-  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime       @default(now()) @db.Timestamptz(3)
   ipAddress  String?
   userAgent  String?
+  /// Vilken inloggning som användes. ADMIN = adminpanelen, EMPLOYEE = anställdpanelen. Styr vad sessionen får göra.
+  context    SessionContext @default(EMPLOYEE)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -67,7 +70,8 @@ model Session {
 model Employee {
   id                     String           @id @default(cuid())
   /// Null = personen har ännu ingen inloggning (t.ex. bollplockare som onboardas senare).
-  userId                 String?          @unique
+  /// En användare kan ha en anställning per kategori (unik på userId + category).
+  userId                 String?
   firstName              String
   lastName               String
   category               WorkCategory
@@ -99,6 +103,7 @@ model Employee {
   dailyClosings            DailyClosing[]
   dailyClosingsResponsible DailyClosingAssignment[]
 
+  @@unique([userId, category])
   @@index([category, status])
   @@index([lastName, firstName])
 }

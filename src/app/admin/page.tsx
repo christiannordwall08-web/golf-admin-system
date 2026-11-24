@@ -1,53 +1,122 @@
-import { CalendarClock, Flag, Users } from "lucide-react";
+import { AlarmClock, CalendarClock, CircleDollarSign, Clock, FileEdit, Hourglass, ShieldCheck, Users, Repeat, UserCheck } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ApprovalBadge, CategoryBadge, PhaseBadge } from "@/components/schedule/shift-badges";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { requireRole } from "@/server/auth/current-user";
+import { Table, TableWrap, Td, Th } from "@/components/ui/table";
+import { formatDuration, formatSek } from "@/domain/money";
+import { formatDateShort, formatMonthYear, formatTimeRange } from "@/domain/time";
+import { requireAdminArea, toActor } from "@/server/auth/current-user";
 import { getDb } from "@/server/db";
+import { getAdminDashboard } from "@/server/queries/dashboard";
 
 export const metadata: Metadata = { title: "Översikt" };
 
 export default async function AdminHome() {
   // Samma kontroll som layouten: en sida ska aldrig förlita sig på att en layout körts.
-  const { user } = await requireRole("ADMIN");
-
-  const grouped = await getDb().employee.groupBy({
-    by: ["category"],
-    where: { status: "ACTIVE" },
-    _count: { _all: true },
-  });
-  const count = (category: "GOLFSHOP" | "BOLLPLOCKARE") =>
-    grouped.find((g) => g.category === category)?._count._all ?? 0;
-  const golfshop = count("GOLFSHOP");
-  const bollplockare = count("BOLLPLOCKARE");
+  const session = await requireAdminArea();
+  const now = new Date();
+  const d = await getAdminDashboard(getDb(), toActor(session), now);
+  const ongoing = d.today.filter((s) => s.phase === "ONGOING").length;
+  const todayPeople = new Set(d.today.map((s) => s.employeeId)).size;
 
   return (
     <>
       <PageHeader
-        title={`Hej ${user.firstName ?? "Admin"}`}
-        description="Översikt över golfanläggningens personal."
+        title={`Hej ${session.user.firstName ?? "Admin"}`}
+        description={`Översikt över personal, timmar och schema · ${formatMonthYear(d.year, d.month)}`}
+        actions={
+          <>
+            <Link href="/admin/personal" className={buttonVariants({ variant: "secondary" })}>Personal &amp; löner</Link>
+            <Link href="/admin/schema" className={buttonVariants({ variant: "primary" })}>Se scheman</Link>
+          </>
+        }
       />
 
-      <section aria-label="Personal" className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Anställda (aktiva)" value={golfshop + bollplockare} icon={Users} />
-        <StatCard label="Golfshop" value={golfshop} icon={Flag} />
-        <StatCard label="Bollplockare" value={bollplockare} icon={Users} />
+      <section aria-label="Nyckeltal" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Anställda (aktiva)" value={d.employees.total} icon={Users} hint={`Golfshop ${d.employees.golfshop} · Bollplockare ${d.employees.bollplockare}`} />
+        <StatCard label="Schemalagda idag" value={todayPeople} icon={CalendarClock} hint={`${d.today.length} pass`} />
+        <StatCard label="Pågår just nu (enligt schema)" value={ongoing} icon={AlarmClock} hint="Schemabaserat, inte verifierad incheckning" />
+        <StatCard label="Genomfört i månaden" value={formatDuration(d.monthTotals.completedMinutes)} icon={Clock} hint="Enligt schema, ej godkänd tid" />
+        <StatCard label="Kommande i månaden" value={formatDuration(d.monthTotals.remainingMinutes)} icon={Hourglass} hint="Schemalagt, inte genomfört" />
+        <StatCard label="Godkända timmar" value={formatDuration(d.approvedMinutes)} icon={UserCheck} hint="Godkännande byggs i Etapp 4" />
+        <StatCard label="Preliminär lönekostnad" value={formatSek(d.monthTotals.estimatedCompensationOre)} icon={CircleDollarSign} hint="Genomförda pass × timlön, ej godkänd" />
+        <StatCard label="Väntar på godkännande" value={d.actions.pendingApprovals} icon={ShieldCheck} hint="Pass som personalen inte accepterat än" />
+        <StatCard label="Bytesförfrågningar" value={d.actions.openSwapRequests} icon={Repeat} hint="Öppna ärenden" />
+        <StatCard label="Utkast (ej publicerade pass)" value={d.actions.draftShifts} icon={FileEdit} hint="Framtida pass" />
       </section>
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Dagens schema och väntande åtgärder</CardTitle>
-          <CardDescription>Schemalagda idag, pågående pass, timmar, lönekostnad och godkännanden.</CardDescription>
+          <CardTitle>Personal som arbetar idag</CardTitle>
+          <CardDescription>Namn, tid och status för varje pass idag. Statusen följer schemat och är ingen verifierad incheckning.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <EmptyState icon={CalendarClock} title="Byggs i nästa etapp">
-            Personalregister, schemaläggning och dashboardens övriga nyckeltal kommer i Etapp 2. Siffrorna ovan
-            hämtas redan från databasen.
-          </EmptyState>
+        <CardContent className="p-0">
+          {d.today.length === 0 ? (
+            <EmptyState icon={CalendarClock} title="Ingen är schemalagd idag" />
+          ) : (
+            <TableWrap className="rounded-none border-0 shadow-none">
+              <Table>
+                <thead>
+                  <tr><Th>Anställd</Th><Th>Arbetskategori</Th><Th>Datum</Th><Th>Schemalagd tid</Th><Th>Status</Th></tr>
+                </thead>
+                <tbody>
+                  {d.today.map((s) => (
+                    <tr key={s.id}>
+                      <Td className="font-medium">{s.employeeName}</Td>
+                      <Td><CategoryBadge category={s.category} /></Td>
+                      <Td>{formatDateShort(s.startsAt)}</Td>
+                      <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>
+                      <Td><PhaseBadge phase={s.phase} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )}
         </CardContent>
       </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Kommande arbetspass</CardTitle>
+          <CardDescription>De närmaste passen i båda grupperna.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {d.upcoming.length === 0 ? (
+            <EmptyState icon={CalendarClock} title="Inga kommande pass" />
+          ) : (
+            <TableWrap className="rounded-none border-0 shadow-none">
+              <Table>
+                <thead>
+                  <tr><Th>Anställd</Th><Th>Arbetskategori</Th><Th>Datum</Th><Th>Tid</Th><Th>Godkännande</Th></tr>
+                </thead>
+                <tbody>
+                  {d.upcoming.map((s) => (
+                    <tr key={s.id}>
+                      <Td className="font-medium">{s.employeeName}</Td>
+                      <Td><CategoryBadge category={s.category} /></Td>
+                      <Td>{formatDateShort(s.startsAt)}</Td>
+                      <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>
+                      <Td><ApprovalBadge status={s.approvalStatus} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )}
+        </CardContent>
+      </Card>
+
+      <Notice tone="info" title="Timmar och lön just nu" className="mt-6">
+        Siffrorna bygger på schemat. Godkänd arbetstid, korrigeringar, månadsrapporter och löneunderlag byggs i Etapp 4.
+        Framtida pass räknas aldrig som genomförda.
+      </Notice>
     </>
   );
 }

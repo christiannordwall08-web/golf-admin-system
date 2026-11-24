@@ -1,19 +1,7 @@
-// ÄGS AV BOLLPLOCKARE-UTVECKLAREN. Bara skalet finns här så att roller och inloggning kan
-// verifieras. Ersätt gärna innehållet; behåll anropet till requireRole("BOLLPLOCKARE").
+// ÄGS AV BOLLPLOCKARE-UTVECKLAREN. Delar tills vidare komponenter med Golfshop (src/components/employee).
 import type { ReactNode } from "react";
-import { AppShell } from "@/components/layout/app-shell";
-import { NAV_BY_ROLE } from "@/components/layout/nav-config";
-import { ROLE_LABEL } from "@/domain/roles";
-import { requireRole } from "@/server/auth/current-user";
+import { EmployeeAreaLayout } from "@/components/employee/area-layout";
 
-export default async function BollplockareLayout({ children }: { children: ReactNode }) {
-  const { user } = await requireRole("BOLLPLOCKARE");
-  return (
-    <AppShell
-      user={{ displayName: user.displayName, roleLabel: ROLE_LABEL[user.role], role: user.role }}
-      nav={NAV_BY_ROLE.BOLLPLOCKARE}
-    >
-      {children}
-    </AppShell>
-  );
+export default async function Layout({ children }: { children: ReactNode }) {
+  return <EmployeeAreaLayout category="BOLLPLOCKARE">{children}</EmployeeAreaLayout>;
 }

@@ -37,13 +37,17 @@ Vi använder databasbaserade sessioner (`src/server/auth/`) i stället för Auth
   och direkt avstängning av konton är enklare att göra korrekt i ~300 rader kod vi äger och testar.
 - Flera populära bibliotek är fortfarande beta-versioner eller byter API ofta.
 
+**Två inloggningar.** `/login/admin` kräver kontot `role = ADMIN`, `/login/anstalld` kräver minst en aktiv anställning (`Employee`). En session har en `context`
+(`ADMIN` eller `EMPLOYEE`) som styr vilken panel och vilka behörigheter som gäller. En person som är både admin och anställd väljer alltså inloggning, och i en
+anställdsession gäller aldrig adminbehörigheter (`actingRole`). Fel inloggningstyp avslöjas bara efter korrekt lösenord och räknas inte som felförsök.
+
 Så fungerar det: webbläsaren får en slumpmässig 256-bitars token i en `HttpOnly`, `SameSite=Lax` cookie (`Secure` och `__Host-`-prefix i
 produktion). Databasen sparar bara SHA-256 av token, så en läckt databas kan inte användas för att ta över sessioner.
 Sessioner upphör efter 14 dagar (absolut) eller 7 dagar utan aktivitet och försvinner direkt när kontot inaktiveras.
 Efter 5 felaktiga inloggningar spärras kontot i 15 minuter. Svaret är detsamma för okänd användare, fel lösenord och
 inaktivt konto, och svarstiden jämnas ut. Allt revisionsloggas utan lösenord eller angiven e-post.
 **Om kraven växer** (SSO, tvåfaktor) byter man ut `src/server/auth/login.ts` mot ett etablerat bibliotek; resten av koden
-använder bara `getSessionUser()`/`requireRole()`/`requirePermission()`.
+använder bara `getSessionUser()`/`requireAdminArea()`/`requireEmployeeArea()`/`requirePermission()`.
 
 **CSRF:** Server Actions skyddas av Next.js origin-kontroll och cookien är `SameSite=Lax`. Framtida Route Handlers som ändrar
 data måste själva kontrollera `Origin`.
@@ -74,7 +78,7 @@ Databas                         prisma/**         Schema, migrationer, constrain
   Mönstret finns i `src/server/services/pay-rates.ts`.
 - **Data Access Layer** för autentisering: `src/server/auth/current-user.ts`. `proxy.ts` gör bara en optimistisk kontroll
   (finns en sessionscookie?) och är inte säkerhet.
-- **Layouts körs inte vid varje klientnavigering** i Next.js. Därför anropar både layout *och* sida `requireRole()`.
+- **Layouts körs inte vid varje klientnavigering** i Next.js. Därför anropar både layout *och* sida `requireAdminArea()` eller `requireEmployeeArea()`.
 
 ## Tid, datum och pengar
 
@@ -93,7 +97,9 @@ Databas                         prisma/**         Schema, migrationer, constrain
 
 | Hot | Skydd |
 |---|---|
-| Anställd ändrar URL eller skickar eget anrop | Rollkontroll i layout, sida, Server Action och tjänst. Fel roll studsas till egen startsida (testat i webbläsare och med curl). |
+| Anställd ändrar URL eller skickar eget anrop | Panelkontroll i layout, sida, Server Action och tjänst. En anställdsession studsas från `/admin/**` till sin egen startsida, även om kontot också är admin (testat i webbläsare). |
+| Anställd läser en annan persons pass genom att byta id | Frågorna för personal tar `userId` från sessionen och avgränsar på den (`getMyMonth`, testat). |
+| Anställd ser andras löner och timmar | Personalöversikt, profil och schema kräver adminbehörigheter som en anställdsession aldrig har (testat). |
 | Anställd ändrar sin egen lön/tid | `payrates:write`, `worktime:approve`, `worktime:correct` finns bara för ADMIN. Tjänsten nekar (test: `tests/db/pay-rate-service.test.ts`). |
 | Gissning av lösenord | Argon2id, spärr efter 5 försök, enhetligt svar, revisionslogg. |
 | Stulen databas | Sessionstoken lagras som hash, lösenord som Argon2id. |

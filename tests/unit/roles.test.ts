@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   USER_ROLES,
+  actingRoleFor,
+  canUseAudience,
+  homeFor,
+  isPathAllowedForContext,
+  primaryCategory,
   can,
   categoryForRole,
   isRoleConsistentWithCategory,
@@ -74,5 +79,47 @@ describe("safeInternalPath (skydd mot öppen omdirigering)", () => {
   it("null/undefined ger fallback", () => {
     expect(safeInternalPath(null, "/x")).toBe("/x");
     expect(safeInternalPath(undefined, "/x")).toBe("/x");
+  });
+});
+
+describe("två inloggningar: Admin och Anställd", () => {
+  it("admininloggning kräver rollen ADMIN, anställdinloggning kräver minst en anställning", () => {
+    expect(canUseAudience("ADMIN", "ADMIN", 0)).toBe(true);
+    expect(canUseAudience("GOLFSHOP", "ADMIN", 1)).toBe(false);
+    expect(canUseAudience("BOLLPLOCKARE", "ADMIN", 1)).toBe(false);
+    expect(canUseAudience("GOLFSHOP", "EMPLOYEE", 1)).toBe(true);
+    expect(canUseAudience("ADMIN", "EMPLOYEE", 2)).toBe(true); // admin som också jobbar
+    expect(canUseAudience("ADMIN", "EMPLOYEE", 0)).toBe(false); // ren admin har ingen anställd-panel
+  });
+
+  it("i en anställdsession gäller ALDRIG adminbehörigheter, även om kontot är admin", () => {
+    const role = actingRoleFor("EMPLOYEE", ["GOLFSHOP", "BOLLPLOCKARE"]);
+    expect(role).toBe("GOLFSHOP");
+    expect(can(role, "payrates:read:all")).toBe(false);
+    expect(can(role, "employees:read:all")).toBe(false);
+    expect(can(role, "schedule:read:all")).toBe(false);
+    expect(actingRoleFor("EMPLOYEE", ["BOLLPLOCKARE"])).toBe("BOLLPLOCKARE");
+    expect(actingRoleFor("ADMIN", [])).toBe("ADMIN");
+  });
+
+  it("främsta arbetsplats och startsida", () => {
+    expect(primaryCategory("GOLFSHOP", ["BOLLPLOCKARE", "GOLFSHOP"])).toBe("GOLFSHOP");
+    expect(primaryCategory("BOLLPLOCKARE", ["GOLFSHOP", "BOLLPLOCKARE"])).toBe("BOLLPLOCKARE");
+    expect(primaryCategory("ADMIN", ["BOLLPLOCKARE", "GOLFSHOP"])).toBe("GOLFSHOP");
+    expect(primaryCategory("ADMIN", ["BOLLPLOCKARE"])).toBe("BOLLPLOCKARE");
+    expect(primaryCategory("ADMIN", [])).toBeNull();
+    expect(homeFor("ADMIN", null)).toBe("/admin");
+    expect(homeFor("EMPLOYEE", "GOLFSHOP")).toBe("/golfshop");
+    expect(homeFor("EMPLOYEE", "BOLLPLOCKARE")).toBe("/bollplockare");
+    expect(homeFor("EMPLOYEE", null)).toBe("/login");
+  });
+
+  it("efter inloggning får man bara skickas till sidor som hör till inloggningen", () => {
+    expect(isPathAllowedForContext("ADMIN", "/admin/personal?m=2026-11")).toBe(true);
+    expect(isPathAllowedForContext("ADMIN", "/golfshop")).toBe(false);
+    expect(isPathAllowedForContext("ADMIN", "/administrator")).toBe(false);
+    expect(isPathAllowedForContext("EMPLOYEE", "/golfshop/schema")).toBe(true);
+    expect(isPathAllowedForContext("EMPLOYEE", "/bollplockare")).toBe(true);
+    expect(isPathAllowedForContext("EMPLOYEE", "/admin")).toBe(false);
   });
 });

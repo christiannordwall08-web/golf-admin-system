@@ -5,14 +5,16 @@ import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
+import type { SessionContext } from "@/domain/roles";
 import { type LoginState, loginAction } from "./actions";
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ audience, next }: { audience: SessionContext; next?: string }) {
   const [state, formAction] = useActionState<LoginState, FormData>(loginAction, {});
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
       {state.error ? <Notice tone="danger">{state.error}</Notice> : null}
+      <input type="hidden" name="audience" value={audience} />
       <input type="hidden" name="next" value={next ?? ""} />
       <div>
         <Label htmlFor="email">E-postadress</Label>
@@ -39,7 +41,7 @@ export function LoginForm({ next }: { next?: string }) {
         />
       </div>
       <SubmitButton size="lg" pendingText="Loggar in…" className="mt-1 w-full">
-        Logga in
+        {audience === "ADMIN" ? "Logga in som Admin" : "Logga in som anställd"}
       </SubmitButton>
     </form>
   );
