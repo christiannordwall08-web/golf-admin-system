@@ -1,0 +1,41 @@
+// =============================================================================
+// DAGSAVSLUT (golfshop) – bilden ligger i skyddad lagring, här ligger metadata.
+// Sökvägsmönster i lagringen: {år}/{månad}/{dag}/dagsavslut-{unikt-id}.{ext}
+// Implementeras i Etapp 5.
+// =============================================================================
+
+model DailyClosing {
+  id                   String             @id @default(cuid())
+  /// Arbetsdagen avslutet gäller (Stockholm-datum).
+  workDate             DateTime           @db.Date
+  uploadedByEmployeeId String
+  /// Nyckel i objektlagringen (aldrig en publik URL).
+  storageKey           String             @unique
+  originalFilename     String?
+  mimeType             String
+  sizeBytes            Int
+  sha256               String
+  status               DailyClosingStatus @default(SUBMITTED)
+  uploadedAt           DateTime           @default(now()) @db.Timestamptz(3)
+  reviewedAt           DateTime?          @db.Timestamptz(3)
+  reviewedById         String?
+
+  uploadedBy Employee @relation(fields: [uploadedByEmployeeId], references: [id], onDelete: Restrict)
+  reviewedBy User?    @relation("DailyClosingReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([workDate])
+  @@index([uploadedByEmployeeId, workDate])
+}
+
+/// Admin pekar ut vem som ansvarar för dagens avslut (bara en per dag).
+model DailyClosingAssignment {
+  id                    String   @id @default(cuid())
+  workDate              DateTime @unique @db.Date
+  responsibleEmployeeId String
+  assignedById          String
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+
+  responsible Employee @relation(fields: [responsibleEmployeeId], references: [id], onDelete: Restrict)
+  assignedBy  User     @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+}

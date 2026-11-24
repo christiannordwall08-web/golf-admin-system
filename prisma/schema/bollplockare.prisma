@@ -1,0 +1,15 @@
+// =============================================================================
+// BOLLPLOCKARE – ÄGS AV BOLLPLOCKARE-UTVECKLAREN
+// Lägg modeller för GPS, in-/utcheckning m.m. här (och bara här). Se docs/COLLABORATION.md.
+//
+// Regler för att integrationen mot Admin ska fungera utan konflikter:
+//  * Prefixa modellnamn med "Gps" eller "Bollplockare" (t.ex. GpsPosition, GpsClockEvent).
+//  * Referera till Employee/Shift via id med onDelete: Restrict. Ändra inte kolumner i
+//    de gemensamma modellerna i övriga filer utan pull request mot main.
+//  * Skriv tid till Admin via WorkTimeEntry (source = GPS, registeredStartsAt/EndsAt,
+//    registeredMinutes) – se docs/BOLLPLOCKARE-INTEGRATION.md. Skapa inga egna lönekolumner.
+//  * Om en gemensam modell behöver ett nytt fält: öppna en PR mot main med fältet och
+//    migrationen, så merge:ar båda utvecklarna det.
+//
+// Relationer från gemensamma modeller kräver en inversa sida i den modellen; be om det via PR.
+// =============================================================================

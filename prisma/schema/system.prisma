@@ -1,0 +1,42 @@
+// =============================================================================
+// SYSTEM: notiser och revisionslogg
+// =============================================================================
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String
+  body       String?
+  /// Endast intern sökväg (t.ex. /golfshop/byten/abc). Aldrig extern URL.
+  linkPath   String?
+  entityType String?
+  entityId   String?
+  readAt     DateTime?        @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// Append-only (trigger i databasen förbjuder UPDATE/DELETE). Skriv aldrig lösenord,
+/// token eller onödiga personuppgifter i before/after/metadata.
+model AuditLog {
+  id         String   @id @default(cuid())
+  /// Null = systemet själv (t.ex. automatisk tidsregistrering).
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}

@@ -1,0 +1,163 @@
+// =============================================================================
+// SCHEMALÄGGNING
+// Schema (en per kategori och månad) -> Shift (arbetspass) -> historik/godkännanden/byten.
+// Tre SEPARATA statusar på Shift (blanda aldrig ihop dem):
+//   publicationStatus  DRAFT | PUBLISHED               – syns passet för personalen?
+//   approvalStatus     PENDING | APPROVED | ...        – har den ansvariga accepterat?
+//   workStatus         SCHEDULED | COMPLETED | ...     – vad hände i verkligheten?
+// =============================================================================
+
+/// Ett månadsschema för en personalgrupp (Schema A = Golfshop, Schema B = Bollplockare).
+model Schedule {
+  id          String            @id @default(cuid())
+  category    WorkCategory
+  year        Int
+  /// 1–12
+  month       Int
+  status      PublicationStatus @default(DRAFT)
+  publishedAt DateTime?         @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+
+  shifts       Shift[]
+  publications SchedulePublication[]
+
+  @@unique([category, year, month])
+}
+
+/// En rad per publiceringstillfälle (ett schema kan publiceras om efter ändringar).
+model SchedulePublication {
+  id                String   @id @default(cuid())
+  scheduleId        String
+  publishedById     String
+  publishedAt       DateTime @default(now()) @db.Timestamptz(3)
+  shiftCount        Int
+  employeesNotified Int      @default(0)
+  note              String?
+
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  publishedBy User     @relation(fields: [publishedById], references: [id], onDelete: Restrict)
+
+  @@index([scheduleId, publishedAt])
+}
+
+/// Ett arbetspass. assignedEmployeeId = den som är ANSVARIG just nu (och får timmarna).
+/// originalEmployeeId = den som ursprungligen tilldelades (ändras aldrig).
+model Shift {
+  id                 String            @id @default(cuid())
+  scheduleId         String
+  category           WorkCategory
+  assignedEmployeeId String
+  originalEmployeeId String
+  startsAt           DateTime          @db.Timestamptz(3)
+  endsAt             DateTime          @db.Timestamptz(3)
+  /// Stockholm-datum för startsAt. Sätts av tjänstelagret (src/server/domain/time.ts).
+  localDate          DateTime          @db.Date
+  publicationStatus  PublicationStatus @default(DRAFT)
+  approvalStatus     ApprovalStatus    @default(PENDING)
+  workStatus         ShiftWorkStatus   @default(SCHEDULED)
+  notes              String?
+  /// Optimistisk låsning: uppdatera med WHERE id AND version, öka version vid varje ändring.
+  version            Int               @default(1)
+  createdById        String
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+  cancelledAt        DateTime?         @db.Timestamptz(3)
+
+  schedule         Schedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  assignedEmployee Employee @relation("ShiftAssignee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
+  originalEmployee Employee @relation("ShiftOriginalAssignee", fields: [originalEmployeeId], references: [id], onDelete: Restrict)
+  createdBy        User     @relation("ShiftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  assignmentHistory ShiftAssignmentHistory[]
+  approvals         ShiftApproval[]
+  swapRequests      ShiftSwapRequest[]
+  workTimeEntry     WorkTimeEntry?
+
+  @@index([assignedEmployeeId, startsAt])
+  @@index([category, localDate])
+  @@index([scheduleId])
+}
+
+/// Append-only. Varje ändring av ansvarig person loggas (inklusive första tilldelningen).
+model ShiftAssignmentHistory {
+  id             String                 @id @default(cuid())
+  shiftId        String
+  fromEmployeeId String?
+  toEmployeeId   String
+  reason         AssignmentChangeReason
+  swapRequestId  String?
+  changedById    String
+  comment        String?
+  createdAt      DateTime               @default(now()) @db.Timestamptz(3)
+
+  shift        Shift             @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  fromEmployee Employee?         @relation("AssignmentFrom", fields: [fromEmployeeId], references: [id], onDelete: Restrict)
+  toEmployee   Employee          @relation("AssignmentTo", fields: [toEmployeeId], references: [id], onDelete: Restrict)
+  swapRequest  ShiftSwapRequest? @relation(fields: [swapRequestId], references: [id], onDelete: Restrict)
+  changedBy    User              @relation("AssignmentChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([shiftId, createdAt])
+}
+
+/// Append-only. Den anställdas beslut om ett pass (för en viss version av passet).
+model ShiftApproval {
+  id           String         @id @default(cuid())
+  shiftId      String
+  employeeId   String
+  /// Vilken version av passet beslutet gäller. Ändras passet väsentligt krävs nytt beslut.
+  shiftVersion Int
+  decision     ApprovalStatus
+  comment      String?
+  decidedAt    DateTime       @default(now()) @db.Timestamptz(3)
+
+  shift    Shift    @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([shiftId, decidedAt])
+}
+
+/// Förfrågan om ändring/passbyte. Inget blir definitivt förrän Admin godkänt (status APPROVED).
+model ShiftSwapRequest {
+  id                    String            @id @default(cuid())
+  shiftId               String
+  requesterId           String
+  /// Kollega som föreslås ta passet (null = bara ändringsförfrågan till Admin).
+  proposedEmployeeId    String?
+  proposedStartsAt      DateTime?         @db.Timestamptz(3)
+  proposedEndsAt        DateTime?         @db.Timestamptz(3)
+  reason                String
+  status                SwapRequestStatus @default(AWAITING_COLLEAGUE)
+  shiftVersionAtRequest Int
+  colleagueRespondedAt  DateTime?         @db.Timestamptz(3)
+  decidedById           String?
+  decidedAt             DateTime?         @db.Timestamptz(3)
+  adminComment          String?
+  createdAt             DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime          @updatedAt @db.Timestamptz(3)
+
+  shift            Shift     @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  requester        Employee  @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  proposedEmployee Employee? @relation("SwapProposedColleague", fields: [proposedEmployeeId], references: [id], onDelete: Restrict)
+  decidedBy        User?     @relation("SwapDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  messages          ShiftSwapMessage[]
+  assignmentChanges ShiftAssignmentHistory[]
+
+  @@index([shiftId])
+  @@index([status, createdAt])
+}
+
+/// Append-only meddelandetråd kopplad till en förfrågan.
+model ShiftSwapMessage {
+  id        String   @id @default(cuid())
+  requestId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  request ShiftSwapRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  author  User             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([requestId, createdAt])
+}

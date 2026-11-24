@@ -1,0 +1,104 @@
+// =============================================================================
+// PERSONAL OCH INLOGGNING
+// User     = inloggning + åtkomstroll (vad får personen göra?)
+// Employee = personen i personalregistret + arbetskategori (var arbetar personen?)
+// Invariant (säkras i tjänstelagret, se src/server/domain/roles.ts):
+//   User.role === ADMIN             => Employee behövs inte
+//   User.role === GOLFSHOP|BOLLPLOCKARE => Employee.category har samma värde
+// =============================================================================
+
+model User {
+  id               String    @id @default(cuid())
+  /// Alltid gemener (CHECK-constraint i databasen).
+  email            String    @unique
+  /// Visningsnamn ENDAST för användare utan personalpost (t.ex. Admin). Personalens namn
+  /// kommer alltid från Employee (personalregistret) – visa aldrig detta fält för dem.
+  name             String?
+  passwordHash     String
+  role             UserRole
+  isActive         Boolean   @default(true)
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime? @db.Timestamptz(3)
+  lastLoginAt      DateTime? @db.Timestamptz(3)
+  /// Testdata är alltid markerad och skapas bara av prisma/seed-demo.ts i utvecklingsmiljö.
+  isTestData       Boolean   @default(false)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  employee      Employee?
+  sessions      Session[]
+  notifications Notification[]
+
+  // Inversa sidor för "utfört av"-kolumner (historik ska alltid kunna kopplas till en användare)
+  auditLogs               AuditLog[]
+  shiftsCreated           Shift[]                  @relation("ShiftCreatedBy")
+  assignmentChanges       ShiftAssignmentHistory[] @relation("AssignmentChangedBy")
+  schedulePublications    SchedulePublication[]
+  swapDecisions           ShiftSwapRequest[]       @relation("SwapDecidedBy")
+  swapMessages            ShiftSwapMessage[]
+  workTimeApprovals       WorkTimeEntry[]          @relation("WorkTimeApprovedBy")
+  workTimeCorrections     WorkTimeCorrection[]
+  payRatesCreated         PayRate[]
+  payrollApprovals        MonthlyPayrollReport[]   @relation("PayrollApprovedBy")
+  payrollLocks            MonthlyPayrollReport[]   @relation("PayrollLockedBy")
+  payrollAdjustments      PayrollAdjustment[]
+  dailyClosingReviews     DailyClosing[]           @relation("DailyClosingReviewedBy")
+  dailyClosingAssignments DailyClosingAssignment[]
+}
+
+model Session {
+  /// SHA-256 (hex) av sessionstoken. Själva token finns bara i användarens cookie.
+  id         String   @id
+  userId     String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  /// Absolut maxlängd.
+  expiresAt  DateTime @db.Timestamptz(3)
+  /// För inaktivitetstidsgräns.
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  ipAddress  String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Employee {
+  id                     String           @id @default(cuid())
+  /// Null = personen har ännu ingen inloggning (t.ex. bollplockare som onboardas senare).
+  userId                 String?          @unique
+  firstName              String
+  lastName               String
+  category               WorkCategory
+  status                 EmploymentStatus @default(ACTIVE)
+  /// Kontaktuppgift – inte inloggning (inloggning är User.email).
+  email                  String?
+  phone                  String?
+  employmentStartDate    DateTime?        @db.Date
+  employmentEndDate      DateTime?        @db.Date
+  /// Om true får den anställda se sin egen preliminära ersättning (aldrig andras).
+  showEarningsToEmployee Boolean          @default(false)
+  isTestData             Boolean          @default(false)
+  createdAt              DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime         @updatedAt @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  payRates                 PayRate[]
+  shiftsAssigned           Shift[]                  @relation("ShiftAssignee")
+  shiftsOriginallyOwned    Shift[]                  @relation("ShiftOriginalAssignee")
+  assignmentsFrom          ShiftAssignmentHistory[] @relation("AssignmentFrom")
+  assignmentsTo            ShiftAssignmentHistory[] @relation("AssignmentTo")
+  shiftApprovals           ShiftApproval[]
+  swapRequestsMade         ShiftSwapRequest[]       @relation("SwapRequester")
+  swapRequestsReceived     ShiftSwapRequest[]       @relation("SwapProposedColleague")
+  workTimeEntries          WorkTimeEntry[]
+  payrollReportLines       PayrollReportLine[]
+  payrollAdjustments       PayrollAdjustment[]
+  dailyClosings            DailyClosing[]
+  dailyClosingsResponsible DailyClosingAssignment[]
+
+  @@index([category, status])
+  @@index([lastName, firstName])
+}

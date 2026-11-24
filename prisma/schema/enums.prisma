@@ -1,0 +1,97 @@
+// Gemensamma enum-typer. Lägg till nya värden i slutet (additivt) för att undvika konflikter.
+
+/// Åtkomstroll i systemet (vad användaren får göra).
+enum UserRole {
+  ADMIN
+  GOLFSHOP
+  BOLLPLOCKARE
+}
+
+/// Arbetskategori (vilken personalgrupp/schema en anställd tillhör).
+enum WorkCategory {
+  GOLFSHOP
+  BOLLPLOCKARE
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// PUBLICERINGSSTATUS – är passet/schemat synligt för personalen?
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// GODKÄNNANDESTATUS – har den ansvariga anställda accepterat passet?
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  CHANGE_REQUESTED
+  APPROVED_AFTER_SWAP
+}
+
+/// ARBETSSTATUS – vad hände med passet i verkligheten?
+enum ShiftWorkStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  ABSENT
+}
+
+enum AssignmentChangeReason {
+  INITIAL
+  ADMIN_REASSIGNMENT
+  SHIFT_SWAP
+}
+
+enum SwapRequestStatus {
+  AWAITING_COLLEAGUE
+  AWAITING_ADMIN
+  DECLINED_BY_COLLEAGUE
+  APPROVED
+  DENIED
+  CANCELLED
+}
+
+enum WorkTimeSource {
+  SCHEDULE
+  GPS
+  ADMIN_MANUAL
+}
+
+enum WorkTimeStatus {
+  PRELIMINARY
+  APPROVED
+  CORRECTED
+  ABSENT
+  VOID
+}
+
+enum PayrollReportStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+}
+
+enum DailyClosingStatus {
+  SUBMITTED
+  REVIEWED
+}
+
+enum NotificationType {
+  SCHEDULE_PUBLISHED
+  SHIFT_APPROVAL_NEEDED
+  SHIFT_CHANGED
+  SHIFT_UPCOMING
+  SWAP_REQUESTED
+  SWAP_COLLEAGUE_ACCEPTED
+  SWAP_COLLEAGUE_DECLINED
+  SWAP_APPROVED
+  SWAP_DENIED
+  DAILY_CLOSING_SUBMITTED
+  DAILY_CLOSING_MISSING
+  WORKTIME_NEEDS_REVIEW
+  PAYROLL_REPORT_READY
+}

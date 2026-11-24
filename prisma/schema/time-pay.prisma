@@ -1,0 +1,164 @@
+// =============================================================================
+// ARBETSTID OCH LÖNEUNDERLAG
+// Fyra tidsbegrepp hålls alltid isär:
+//   scheduledMinutes   – schemalagd tid (snapshot från passet)
+//   registeredMinutes  – preliminärt registrerad tid (schema-automatik eller GPS)
+//   approvedMinutes    – godkänd arbetstid (sätts av Admin; bara denna ger ersättning)
+//   WorkTimeCorrection – varje korrigering som append-only logg
+// Ersättning = approvedMinutes × timlön som gällde arbetsdagen (PayRate), i hela ören.
+// Löneunderlag, inte utbetalning.
+// =============================================================================
+
+/// Timlönehistorik. En rad per giltighetsperiod. Perioder för samma anställd får aldrig
+/// överlappa (exclusion constraint). Gällande lön för en dag = raden där
+/// validFrom <= dag < validTo (validTo null = tills vidare).
+model PayRate {
+  id            String    @id @default(cuid())
+  employeeId    String
+  /// Timlön i ören (14000 = 140,00 kr).
+  hourlyRateOre Int
+  validFrom     DateTime  @db.Date
+  /// Exklusivt slutdatum.
+  validTo       DateTime? @db.Date
+  reason        String?
+  createdById   String
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  workTimeEntries WorkTimeEntry[]
+
+  @@index([employeeId, validFrom])
+}
+
+/// Exakt en registrering per arbetspass (shiftId är unik => ingen dubblering).
+/// employeeId = den som har rätt till ersättningen (den som faktiskt arbetade passet).
+model WorkTimeEntry {
+  id                 String         @id @default(cuid())
+  shiftId            String         @unique
+  employeeId         String
+  workDate           DateTime       @db.Date
+  category           WorkCategory
+  source             WorkTimeSource
+  status             WorkTimeStatus @default(PRELIMINARY)
+  scheduledStartsAt  DateTime       @db.Timestamptz(3)
+  scheduledEndsAt    DateTime       @db.Timestamptz(3)
+  scheduledMinutes   Int
+  /// För GPS-källan: faktisk in-/utcheckning (fylls av Bollplockare-modulen).
+  registeredStartsAt DateTime?      @db.Timestamptz(3)
+  registeredEndsAt   DateTime?      @db.Timestamptz(3)
+  registeredMinutes  Int
+  /// Null tills Admin godkänt/korrigerat.
+  approvedMinutes    Int?
+  /// Lönenivå som användes vid godkännandet (fryser beräkningen).
+  payRateId          String?
+  approvedAt         DateTime?      @db.Timestamptz(3)
+  approvedById       String?
+  version            Int            @default(1)
+  createdAt          DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @db.Timestamptz(3)
+
+  shift      Shift    @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  payRate    PayRate? @relation(fields: [payRateId], references: [id], onDelete: Restrict)
+  approvedBy User?    @relation("WorkTimeApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  corrections WorkTimeCorrection[]
+  reportLine  PayrollReportLine?
+
+  @@index([employeeId, workDate])
+  @@index([workDate, category])
+  @@index([status])
+}
+
+/// Append-only. Alla ändringar av godkänd tid sparas här med orsak.
+model WorkTimeCorrection {
+  id                      String         @id @default(cuid())
+  workTimeEntryId         String
+  previousApprovedMinutes Int?
+  newApprovedMinutes      Int?
+  previousStatus          WorkTimeStatus
+  newStatus               WorkTimeStatus
+  reason                  String
+  correctedById           String
+  createdAt               DateTime       @default(now()) @db.Timestamptz(3)
+
+  workTimeEntry WorkTimeEntry @relation(fields: [workTimeEntryId], references: [id], onDelete: Restrict)
+  correctedBy   User          @relation(fields: [correctedById], references: [id], onDelete: Restrict)
+
+  @@index([workTimeEntryId, createdAt])
+}
+
+/// Månadsrapport för hela anläggningen (filtrering per kategori/anställd sker i vyn).
+/// DRAFT: beräknas live. APPROVED: rader fryses i PayrollReportLine.
+/// LOCKED: definitiv; ändringar sker endast via PayrollAdjustment.
+model MonthlyPayrollReport {
+  id                   String              @id @default(cuid())
+  year                 Int
+  month                Int
+  status               PayrollReportStatus @default(DRAFT)
+  totalApprovedMinutes Int?
+  totalCompensationOre BigInt?
+  approvedAt           DateTime?           @db.Timestamptz(3)
+  approvedById         String?
+  lockedAt             DateTime?           @db.Timestamptz(3)
+  lockedById           String?
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(3)
+
+  approvedBy User? @relation("PayrollApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  lockedBy   User? @relation("PayrollLockedBy", fields: [lockedById], references: [id], onDelete: Restrict)
+
+  lines       PayrollReportLine[]
+  adjustments PayrollAdjustment[]
+
+  @@unique([year, month])
+}
+
+/// Fryst rad vid godkännande: en rad per arbetspass med NAMN, datum, tider, lön och ersättning
+/// som de var vid godkännandet. Senare namnändringar/lönehöjningar skriver inte över historiken.
+model PayrollReportLine {
+  id                   String       @id @default(cuid())
+  reportId             String
+  workTimeEntryId      String       @unique
+  shiftId              String
+  employeeId           String
+  employeeName         String
+  category             WorkCategory
+  workDate             DateTime     @db.Date
+  scheduledStartsAt    DateTime     @db.Timestamptz(3)
+  scheduledEndsAt      DateTime     @db.Timestamptz(3)
+  scheduledMinutes     Int
+  approvedMinutes      Int
+  hourlyRateOre        Int
+  compensationOre      Int
+  /// Ursprunglig tilldelning om passet byttes (för granskning).
+  originalEmployeeName String?
+
+  report        MonthlyPayrollReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  workTimeEntry WorkTimeEntry        @relation(fields: [workTimeEntryId], references: [id], onDelete: Restrict)
+  employee      Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, workDate])
+  @@index([employeeId])
+}
+
+/// Spårbar justering efter godkänd/låst rapport (positiv eller negativ).
+model PayrollAdjustment {
+  id              String   @id @default(cuid())
+  reportId        String
+  employeeId      String
+  workTimeEntryId String?
+  minutesDelta    Int
+  amountDeltaOre  Int
+  reason          String
+  createdById     String
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  report    MonthlyPayrollReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  employee  Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdBy User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([reportId])
+}

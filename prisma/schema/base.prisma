@@ -1,0 +1,21 @@
+// =============================================================================
+// GEMENSAM GRUND – ändras bara via pull request mot main och efter överenskommelse.
+// Se docs/COLLABORATION.md för regler om schemaändringar.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Konventioner (gäller alla filer i prisma/schema/):
+//  * Alla tidpunkter är @db.Timestamptz(3) (UTC internt, visas i Europe/Stockholm).
+//  * Kalenderdatum (arbetsdag, giltighet) är @db.Date och betyder Stockholm-datum.
+//  * Pengar lagras som heltal i ören (Int/BigInt). Aldrig Float/Decimal i beräkningar.
+//  * Historiska poster raderas aldrig: relationer använder onDelete: Restrict.
+//  * Constraints som Prisma inte kan uttrycka (överlappskydd, triggers) ligger i
+//    prisma/migrations/*_integrity_constraints/migration.sql och testas i tests/db/.
