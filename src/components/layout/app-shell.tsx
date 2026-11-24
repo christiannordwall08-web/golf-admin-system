@@ -2,7 +2,9 @@ import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import type { UserRole } from "@/domain/roles";
 import { Brand } from "./brand";
+import { DevPreviewBar } from "./dev-preview-bar";
 import { MobileNav } from "./mobile-nav";
 import type { NavItem } from "./nav-config";
 import { NavLinks } from "./nav-links";
@@ -12,7 +14,7 @@ export function AppShell({
   nav,
   children,
 }: {
-  user: { displayName: string; roleLabel: string };
+  user: { displayName: string; roleLabel: string; role: UserRole };
   nav: NavItem[];
   children: ReactNode;
 }) {
@@ -27,6 +29,7 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <DevPreviewBar current={user.role} />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-r border-line bg-white p-4 lg:flex">
         <Brand className="px-1 pt-1" />
         <div className="flex-1 overflow-y-auto">

@@ -8,6 +8,7 @@ import { authenticate } from "@/server/auth/login";
 import { clearSessionCookie, readSessionToken, setSessionCookie } from "@/server/auth/session-cookie";
 import { createSession, revokeSession } from "@/server/auth/session-store";
 import { getDb } from "@/server/db";
+import { isDevPreviewEnabled } from "@/server/dev-preview";
 
 /** `email` skickas tillbaka så att fältet inte töms när React återställer formuläret. Aldrig lösenordet. */
 export type LoginState = { error?: string; email?: string };
@@ -56,5 +57,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 export async function logoutAction(): Promise<void> {
   await revokeSession(getDb(), await readSessionToken());
   await clearSessionCookie();
-  redirect("/login");
+  redirect(isDevPreviewEnabled() ? "/dev" : "/login");
 }

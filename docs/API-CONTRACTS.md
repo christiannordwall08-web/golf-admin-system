@@ -84,6 +84,7 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 | Endpoint | Beskrivning | Status |
 |---|---|---|
 | `GET /api/health` | `{"status":"ok"}` (200) eller `{"status":"error"}` (503). Inga detaljer. | Finns, verifierad |
+| `GET /dev/as/{admin\|golfshop\|bollplockare}` | Förhandsvisning: loggar in som testkonto och går till rollens startsida. **Bara lokalt**, annars 404 | Finns, verifierad |
 | `POST /api/cron/generate-time-entries` | Serverjobb för automatisk tidsregistrering, skyddad med hemlig token | Planerad, Etapp 4 |
 | `POST /api/daily-closing` | Säker bilduppladdning (typ, storlek, magic bytes, privat lagring) | Planerad, Etapp 5 |
 | `GET /api/export/monthly-report?year=&month=&format=xlsx\|pdf` | Export av månadsrapport | Planerad, Etapp 4 |

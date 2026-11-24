@@ -29,10 +29,29 @@ Sätt `DEV_SEED_PASSWORD` i miljön för att välja lösenord själv, annars slu
 
 **Riktig drift:** kör inte `db:seed:demo`. Skapa första administratören med `npm run db:seed` (se `.env.example`).
 
+## Titta på appen utan inloggning (förhandsvisning)
+
+Vill du bara se hur allt ser ut? Kör ett enda kommando, utan att ha något annat igång:
+
+```bash
+npm run preview
+```
+
+Det startar lokal databas, skapar tabeller, lägger in testdata och startar appen i **förhandsvisningsläge**. Öppna adressen som skrivs ut
+(vanligtvis `http://localhost:3000`; är porten upptagen väljer Next.js nästa lediga). Du hamnar direkt i Admin-vyn utan lösenord.
+Nere till höger finns en växlare (Admin · Golfshop · Bollplockare), och `/dev` visar alla vyer samt ett **komponentgalleri** (`/dev/design`).
+Ctrl+C stoppar allt.
+
+Förhandsvisningen går att slå på **bara** när alla fyra villkor gäller: `DEV_PREVIEW=1` (sätts av `npm run preview`, aldrig i `.env`),
+`NODE_ENV=development`, lokal databas, och den kan bara logga in som de fasta testkontona (`isTestData`, `@demo.test`).
+I ett produktionsbygge ger `/dev` alltid 404, även om `DEV_PREVIEW=1` sätts av misstag (testat). Den skapar en vanlig session,
+så alla roll- och behörighetskontroller gäller som vanligt.
+
 ## Kommandon
 
 | Kommando | Vad det gör |
 |---|---|
+| `npm run preview` | Allt på en gång, utan inloggning, med testdata (se ovan) |
 | `npm run dev` / `build` / `start` | Utvecklingsserver / produktionsbygge / produktionsserver |
 | `npm run typecheck` / `lint` | TypeScript- och ESLint-kontroll |
 | `npm test` | Alla tester (enhetstester + databastester). Startar en egen engångs-PostgreSQL |

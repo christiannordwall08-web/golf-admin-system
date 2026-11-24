@@ -4,6 +4,7 @@ import { Brand } from "@/components/layout/brand";
 import { Card, CardContent } from "@/components/ui/card";
 import { ROLE_HOME } from "@/domain/roles";
 import { getSessionUser } from "@/server/auth/current-user";
+import { isDevPreviewEnabled } from "@/server/dev-preview";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Logga in" };
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "Logga in" };
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const session = await getSessionUser();
   if (session) redirect(ROLE_HOME[session.user.role]);
+  if (isDevPreviewEnabled()) redirect("/dev");
 
   const { next } = await searchParams;
 

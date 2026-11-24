@@ -10,7 +10,7 @@ export default async function BollplockareLayout({ children }: { children: React
   const { user } = await requireRole("BOLLPLOCKARE");
   return (
     <AppShell
-      user={{ displayName: user.displayName, roleLabel: ROLE_LABEL[user.role] }}
+      user={{ displayName: user.displayName, roleLabel: ROLE_LABEL[user.role], role: user.role }}
       nav={NAV_BY_ROLE.BOLLPLOCKARE}
     >
       {children}

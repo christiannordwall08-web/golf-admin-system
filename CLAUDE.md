@@ -20,7 +20,9 @@ som delas (databasschema, `src/domain`, `src/server`, `src/components/ui`).
    onödiga personuppgifter i loggen.
 8. **Ingen testdata i produktion.** Testdata har `isTestData = true` och skapas bara av `prisma/seed-demo.ts`.
 9. **Ändra aldrig en migration som redan finns i `main`.** Skapa en ny. Tabeller/kolumner raderas inte, de utgår.
-10. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
+10. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
+    Lägg aldrig `DEV_PREVIEW` i `.env`. Rör inte spärrarna utan att uppdatera `tests/unit/dev-preview.test.ts`.
+11. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
 
 ## Next.js 16 är inte den Next.js du känner till
 

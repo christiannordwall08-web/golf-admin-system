@@ -103,6 +103,7 @@ Databas                         prisma/**         Schema, migrationer, constrain
 | Ändrad eller raderad historik | Append-only-triggers på revisionslogg, tilldelningshistorik, godkännanden, korrigeringar och meddelanden. `onDelete: Restrict` överallt. |
 | Läckta uppgifter i loggar | Inloggningsloggen innehåller varken lösenord eller angiven e-post (testat). |
 | Klickjacking, MIME-sniffing | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` (verifierat i webbläsare). |
+| Förhandsvisning (lokal utan inloggning) når drift eller riktiga användare | Kräver `DEV_PREVIEW=1` + `NODE_ENV=development` + lokal databas, och kan bara logga in som testkonton (`isTestData`). `/dev/**` ger 404 i production även om `DEV_PREVIEW=1` sätts (testat med `next start`). |
 | Indexering av internt system | `robots: noindex`, `robots.txt` med `Disallow: /`. |
 
 **Ännu inte på plats** (planerat): lösenordsbyte och återställning (Etapp 2), IP-baserad begränsning av inloggningsförsök,
