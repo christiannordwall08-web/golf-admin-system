@@ -59,6 +59,41 @@ export const CATEGORY_HOME: Record<WorkCategory, string> = {
   BOLLPLOCKARE: "/bollplockare",
 };
 
+/**
+ * Anställd-inloggningens första val: var jobbar du? "bada" = både Golfshop och Bollplockare (samlad vy).
+ * Valet styr bara var man hamnar, behörighet kontrolleras alltid mot de verkliga anställningarna.
+ */
+export const WORKPLACES = ["golfshop", "bollplockare", "bada"] as const;
+export type Workplace = (typeof WORKPLACES)[number];
+
+export const WORKPLACE_LABEL: Record<Workplace, string> = {
+  golfshop: "Golfshop",
+  bollplockare: "Bollplockare",
+  bada: "Båda",
+};
+
+/** Startsida för den samlade vyn för personer som jobbar på båda ställena. */
+export const COMBINED_HOME = "/anstalld";
+
+export function workplaceFromSegment(segment: string | null | undefined): Workplace | null {
+  const s = (segment ?? "").toLowerCase();
+  return (WORKPLACES as readonly string[]).includes(s) ? (s as Workplace) : null;
+}
+
+/** Kategorier som ett arbetsplatsval kräver anställning i. */
+export function categoriesForWorkplace(workplace: Workplace): readonly WorkCategory[] {
+  return workplace === "bada" ? WORK_CATEGORIES : [workplace === "golfshop" ? "GOLFSHOP" : "BOLLPLOCKARE"];
+}
+
+/** Har personen anställning för valet? "Båda" kräver båda anställningarna. */
+export function hasWorkplace(categories: readonly WorkCategory[], workplace: Workplace): boolean {
+  return categoriesForWorkplace(workplace).every((c) => categories.includes(c));
+}
+
+export function homeForWorkplace(workplace: Workplace): string {
+  return workplace === "bada" ? COMBINED_HOME : workplace === "golfshop" ? CATEGORY_HOME.GOLFSHOP : CATEGORY_HOME.BOLLPLOCKARE;
+}
+
 /** Får användaren använda den här inloggningen? (`employmentCount` = antal aktiva anställningar.) */
 export function canUseAudience(role: UserRole, audience: SessionContext, employmentCount: number): boolean {
   return audience === "ADMIN" ? role === "ADMIN" : employmentCount > 0;
@@ -87,7 +122,7 @@ export function homeFor(context: SessionContext, primary: WorkCategory | null): 
 /** Får en session med den här inloggningen skickas till `path` efter inloggning? */
 export function isPathAllowedForContext(context: SessionContext, path: string): boolean {
   const starts = (prefix: string) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`);
-  return context === "ADMIN" ? starts("/admin") : starts("/golfshop") || starts("/bollplockare");
+  return context === "ADMIN" ? starts("/admin") : starts("/golfshop") || starts("/bollplockare") || starts(COMBINED_HOME);
 }
 
 const ALL_PERMISSIONS = [

@@ -114,7 +114,7 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
   );
 }
 
-/** Tabell över personal. Den som inte ingår i timlön visas som "Ej timlön" och räknas inte i totalen. */
+/** Tabell över personal. Den som inte ingår i timlön visas som "Fast lön" (eller "Ej timlön") och räknas inte i totalen. */
 function PersonnelTable({ rows, ym, totalsLabel }: { rows: PersonnelRow[]; ym: YearMonth; totalsLabel?: string }) {
   const paid = rows.filter((r) => r.hourlyPaid);
   const sum = (pick: (r: PersonnelRow) => number) => paid.reduce((n, r) => n + pick(r), 0);
@@ -137,7 +137,7 @@ function PersonnelTable({ rows, ym, totalsLabel }: { rows: PersonnelRow[]; ym: Y
               <Td><CategoryBadge category={r.category} /></Td>
               <Td align="right">
                 {!r.hourlyPaid && r.hourlyRateOre === null ? (
-                  <span className="text-ink-muted">Ej timlön</span>
+                  <span className="text-ink-muted">{r.fixedSalary ? "Fast lön" : "Ej timlön"}</span>
                 ) : r.hourlyRateOre === null ? (
                   <span className="text-danger-700">Saknas</span>
                 ) : (

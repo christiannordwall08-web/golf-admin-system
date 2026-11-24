@@ -19,6 +19,8 @@ export type PersonnelRow = {
   isAdmin: boolean;
   /** false = ingår inte i timlön/löneunderlag (visas som "Ej timlön", aldrig som "Lön saknas"). */
   hourlyPaid: boolean;
+  /** Fast månadslön (visas som "Fast lön"). Bara möjligt när `hourlyPaid` är false. */
+  fixedSalary: boolean;
   /** Gällande timlön idag (ören), null om ingen lön är satt. */
   hourlyRateOre: number | null;
   /** Genomfört enligt schema (ej godkänd tid). */
@@ -115,6 +117,7 @@ export async function getPersonnelOverview(
       status: e.status,
       isAdmin: e.user?.role === "ADMIN" && !e.hourlyPaid,
       hourlyPaid: e.hourlyPaid,
+      fixedSalary: e.fixedSalary,
       hourlyRateOre: resolveRateForDate(rates, today)?.hourlyRateOre ?? null,
       completedMinutes: summary.completedMinutes,
       remainingMinutes: summary.remainingMinutes,

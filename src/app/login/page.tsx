@@ -9,7 +9,10 @@ import { isDevPreviewEnabled } from "@/server/dev-preview";
 
 export const metadata: Metadata = { title: "Logga in" };
 
-/** Val mellan de två inloggningarna. `next` följer med så att man hamnar rätt efter inloggning. */
+/**
+ * Första steget: två inloggningar, Admin och Anställd. `next` följer med så att man hamnar rätt efter inloggning.
+ * I lokalt förhandsvisningsläge går Admin direkt in (utan lösenord) som testkontot.
+ */
 export default async function LoginChoicePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const session = await getSessionUser();
   if (session) redirect(homeOf(session));
@@ -17,10 +20,11 @@ export default async function LoginChoicePage({ searchParams }: { searchParams: 
   const suffix = typeof next === "string" && next ? `?next=${encodeURIComponent(next)}` : "";
   // Rätt förval om man kom hit från en adminsida respektive en anställdsida.
   const hint = typeof next === "string" && next.startsWith("/admin") ? "ADMIN" : typeof next === "string" && next ? "EMPLOYEE" : null;
+  const preview = isDevPreviewEnabled();
 
   const options = [
-    { key: "ADMIN", href: `/login/admin${suffix}`, icon: ShieldCheck, title: "Admin", text: "Personal, löner, scheman och rapporter för hela anläggningen." },
-    { key: "EMPLOYEE", href: `/login/anstalld${suffix}`, icon: Flag, title: "Anställd", text: "Ditt schema och dina timmar i golfshopen eller som bollplockare." },
+    { key: "ADMIN", href: preview ? "/dev/as/admin" : `/login/admin${suffix}`, icon: ShieldCheck, title: "Admin", text: "Personal, löner, scheman och rapporter för hela anläggningen." },
+    { key: "EMPLOYEE", href: `/login/anstalld${suffix}`, icon: Flag, title: "Anställd", text: "Ditt schema och dina timmar i golfshopen och/eller som bollplockare." },
   ] as const;
 
   return (
@@ -31,7 +35,8 @@ export default async function LoginChoicePage({ searchParams }: { searchParams: 
         <p className="mb-6 text-center text-sm text-ink-muted">Det finns två separata inloggningar.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {options.map((o) => (
-            <Link key={o.key} href={o.href} className="group block">
+            // Vanlig länk (inte next/link) när den startar en förhandsvisningssession: GET skapar en session och ska aldrig förhämtas.
+            <ChoiceLink key={o.key} href={o.href} plain={o.href.startsWith("/dev/")}>
               <Card className={`h-full transition-shadow group-hover:shadow-pop ${hint === o.key ? "border-brand-400" : ""}`}>
                 <CardContent className="flex h-full flex-col gap-3 p-6">
                   <span className="flex size-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
@@ -44,17 +49,26 @@ export default async function LoginChoicePage({ searchParams }: { searchParams: 
                   <span className="mt-auto text-sm font-medium text-brand-700">Fortsätt som {o.title.toLowerCase()} →</span>
                 </CardContent>
               </Card>
-            </Link>
+            </ChoiceLink>
           ))}
         </div>
-        {isDevPreviewEnabled() ? (
-          <p className="mt-6 text-center text-sm">
-            <a href="/dev" className="text-warning-700 underline">
-              Förhandsvisning: hoppa över inloggning
-            </a>
+        {preview ? (
+          <p className="mt-6 text-center text-sm text-warning-700">
+            Förhandsvisning (lokalt): du kommer in utan lösenord.{" "}
+            <Link href="/login/admin" className="underline">Visa inloggningsformuläret</Link>
+            {" · "}
+            <a href="/dev" className="underline">Testkonto och vyer</a>
           </p>
         ) : null}
       </div>
     </main>
+  );
+}
+
+function ChoiceLink({ href, plain, children }: { href: string; plain?: boolean; children: React.ReactNode }) {
+  return plain ? (
+    <a href={href} className="group block">{children}</a>
+  ) : (
+    <Link href={href} className="group block">{children}</Link>
   );
 }

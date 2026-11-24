@@ -1,11 +1,16 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser, homeOf } from "@/server/auth/current-user";
-import { isDevPreviewEnabled } from "@/server/dev-preview";
+import { getDb } from "@/server/db";
+import { PREVIEW_COOKIE, findPreviewProfile, isDevPreviewEnabled } from "@/server/dev-preview";
 
-/** Inloggade till sin startsida, övriga till valet mellan Admin- och Anställd-inloggning. */
+/**
+ * Inloggade till sin startsida, övriga till det första valet: Admin eller Anställd.
+ * Lokalt förhandsvisningsläge utan testkonto börjar med att skapa ett (på /dev); därefter visas samma val.
+ */
 export default async function Home() {
   const session = await getSessionUser();
   if (session) redirect(homeOf(session));
-  // Lokalt förhandsvisningsläge: ingen inloggning behövs.
-  redirect(isDevPreviewEnabled() ? "/dev" : "/login");
+  if (isDevPreviewEnabled() && !(await findPreviewProfile(getDb(), (await cookies()).get(PREVIEW_COOKIE)?.value))) redirect("/dev");
+  redirect("/login");
 }

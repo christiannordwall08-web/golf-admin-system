@@ -251,6 +251,26 @@ describe("importSchedule – administratörer som styr över de anställda", () 
     expect([p.isAdmin, p.hourlyPaid, p.currentHourlyRateOre]).toEqual([true, false, null]);
   });
 
+  it("fast lön och mottagare av dagsavslut: sätts på admin, visas som 'Fast lön', och går inte att blanda med timlön", async () => {
+    const withFlags: ScheduleImportInput = {
+      ...MIXED,
+      employees: [{ firstName: "Ola", admin: true, fixedSalary: true, receivesDailyClosings: true }, MIXED.employees[1]],
+    };
+    await importSchedule(db, withFlags);
+    const ola = await db.employee.findFirstOrThrow({ where: { firstName: "Ola" }, include: { user: true } });
+    expect([ola.fixedSalary, ola.hourlyPaid, ola.user?.receivesDailyClosings]).toEqual([true, false, true]);
+    const p = await getEmployeeProfile(db, await admin(), ola.id, { year: 2026, month: 11, now: NOW });
+    expect([p.fixedSalary, p.hourlyPaid]).toEqual([true, false]);
+    const { rows } = await getPersonnelOverview(db, await admin(), { year: 2026, month: 11, now: NOW });
+    expect(rows.find((r) => r.firstName === "Ola")?.fixedSalary).toBe(true);
+    expect(rows.find((r) => r.firstName === "Pia")?.fixedSalary).toBe(false);
+
+    await expect(importSchedule(db, { ...MIXED, employees: [{ firstName: "Ola", hourlyPaid: true, fixedSalary: true }, MIXED.employees[1]] })).rejects.toThrow(/fast lön/i);
+    await expect(importSchedule(db, { ...MIXED, employees: [{ firstName: "Ola", receivesDailyClosings: true }, MIXED.employees[1]] })).rejects.toThrow(/administratörer/);
+    // databasen skyddar också mot fast lön för en timanställd
+    await expect(db.employee.update({ where: { id: ola.id }, data: { hourlyPaid: true } })).rejects.toThrow();
+  });
+
   it("är idempotent, och en redan importerad anställd kan senare göras till admin (kopplar konto, ändrar inte pass)", async () => {
     const asEmployee: ScheduleImportInput = { ...MIXED, employees: [{ firstName: "Ola", hourlyPaid: true }, MIXED.employees[1]] };
     await importSchedule(db, asEmployee);

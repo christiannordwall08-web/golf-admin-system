@@ -7,7 +7,9 @@ export type NavIcon =
   | "swap"
   | "clock"
   | "report"
-  | "camera";
+  | "camera"
+  | "shop"
+  | "pin";
 
 export type NavItem = {
   href: string;
@@ -22,6 +24,13 @@ export type NavItem = {
  * Golfshop och Admin ägs av samma utvecklare; Bollplockare-menyn ägs av Bollplockare-utvecklaren
  * (sidorna delar tills vidare komponenter med Golfshop, se src/components/employee).
  */
+/** Samlad anställdvy för den som jobbar på båda ställena. */
+export const NAV_COMBINED: NavItem[] = [
+  { href: "/anstalld", label: "Alla mina pass", icon: "dashboard" },
+  { href: "/golfshop", label: "Golfshop", icon: "shop" },
+  { href: "/bollplockare", label: "Bollplockare", icon: "pin" },
+];
+
 export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   ADMIN: [
     { href: "/admin", label: "Översikt", icon: "dashboard" },

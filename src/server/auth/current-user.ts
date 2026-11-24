@@ -56,6 +56,17 @@ export async function requireEmployeeArea(
 }
 
 /**
+ * Den samlade anställdvyn (`/anstalld`) för den som jobbar på båda ställena. Har man bara en arbetsplats
+ * skickas man till den arbetsplatsens egen panel.
+ */
+export async function requireCombinedEmployeeArea(): Promise<SessionUser> {
+  const session = await requireUser();
+  if (session.context !== "EMPLOYEE") redirect(homeOf(session));
+  if (session.user.employments.length < 2) redirect(homeOf(session));
+  return session;
+}
+
+/**
  * För Server Actions och Route Handlers: kastar i stället för att omdirigera, så att
  * ett API-anrop aldrig kan lyckas utan behörighet. Behörighet följer SESSIONENS roll.
  */

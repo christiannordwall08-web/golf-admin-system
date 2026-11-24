@@ -1,4 +1,4 @@
-import { Flag, MapPin, Palette, ShieldCheck } from "lucide-react";
+import { Flag, Palette, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Brand } from "@/components/layout/brand";
@@ -47,13 +47,12 @@ export default async function DevHome({ searchParams }: { searchParams: Promise<
       {profile ? (
         <>
           <p className="mb-3 mt-2 text-sm text-ink-muted">Testprofil: <span className="font-medium text-ink">{profile.name}</span> · <a href="/dev?ny=1" className="text-brand-700 underline">skapa ett annat konto</a></p>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {[
-              { mode: "admin", icon: ShieldCheck, title: "Admin-inloggning", text: "Alla anställda, löner, arbetade och kommande timmar samt hela scheman för både Golfshop och Bollplockare.", label: "Logga in som Admin" },
-              { mode: "golfshop", icon: Flag, title: "Anställd · Golfshop", text: "Mitt schema och mina timmar i golfshopen. Bara mina egna uppgifter.", label: "Logga in som anställd" },
-              { mode: "bollplockare", icon: MapPin, title: "Anställd · Bollplockare", text: "Samma anställdpanel för bollplockare (GPS-delen byggs separat).", label: "Logga in som anställd" },
+              { href: "/dev/as/admin", icon: ShieldCheck, title: "Admin-inloggning", text: "Alla anställda, löner, arbetade och kommande timmar samt hela scheman för både Golfshop och Bollplockare.", label: "Logga in som Admin" },
+              { href: "/login/anstalld", icon: Flag, title: "Anställd-inloggning", text: "Du väljer först om du jobbar i golfshopen, som bollplockare eller båda. Sedan ser du bara dina egna uppgifter.", label: "Logga in som anställd" },
             ].map((v) => (
-              <Card key={v.mode} className="flex flex-col">
+              <Card key={v.href} className="flex flex-col">
                 <CardHeader>
                   <span className="mb-2 flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><v.icon className="size-5" aria-hidden /></span>
                   <CardTitle>{v.title}</CardTitle>
@@ -61,7 +60,7 @@ export default async function DevHome({ searchParams }: { searchParams: Promise<
                 </CardHeader>
                 <CardContent className="mt-auto">
                   {/* Vanlig länk (inte next/link): GET skapar en session och ska aldrig förhämtas. */}
-                  <a href={`/dev/as/${v.mode}`} className={linkBtn}>{v.label}</a>
+                  <a href={v.href} className={linkBtn}>{v.label}</a>
                 </CardContent>
               </Card>
             ))}

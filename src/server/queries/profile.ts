@@ -30,6 +30,7 @@ export type EmployeeProfile = {
   status: "ACTIVE" | "INACTIVE";
   isAdmin: boolean;
   hourlyPaid: boolean;
+  fixedSalary: boolean;
   email: string | null;
   phone: string | null;
   employmentStartDate: string | null;
@@ -98,6 +99,7 @@ export async function getEmployeeProfile(
     status: employee.status,
     isAdmin: employee.user?.role === "ADMIN" && !employee.hourlyPaid,
     hourlyPaid: employee.hourlyPaid,
+    fixedSalary: employee.fixedSalary,
     email: employee.email,
     phone: employee.phone,
     employmentStartDate: employee.employmentStartDate ? dbDateToString(employee.employmentStartDate) : null,

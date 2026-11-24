@@ -8,6 +8,8 @@ import {
   FileSpreadsheet,
   LayoutDashboard,
   type LucideIcon,
+  MapPin,
+  Store,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,6 +25,8 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   clock: Clock,
   report: FileSpreadsheet,
   camera: Camera,
+  shop: Store,
+  pin: MapPin,
 };
 
 export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

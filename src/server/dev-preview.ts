@@ -37,13 +37,13 @@ export function isPreviewDemoData(env: Record<string, string | undefined> = proc
   return env.PREVIEW_DEMO_DATA !== "0";
 }
 
-export type PreviewMode = "admin" | WorkCategoryMode;
+export type PreviewMode = "admin" | WorkCategoryMode | "alla";
 type WorkCategoryMode = Lowercase<WorkCategory>;
 
-/** URL-segment -> läge ("admin" = adminpanelen, annars anställd i den kategorin), annars null. */
+/** URL-segment -> läge ("admin" = adminpanelen, "alla" = anställd på båda ställena, annars anställd i den kategorin), annars null. */
 export function modeFromSegment(segment: string): PreviewMode | null {
   const s = segment.toLowerCase();
-  return s === "admin" || s === "golfshop" || s === "bollplockare" ? s : null;
+  return s === "admin" || s === "golfshop" || s === "bollplockare" || s === "alla" ? s : null;
 }
 
 /** Testprofilen med givet id, eller null. Hittar aldrig en riktig användare. */

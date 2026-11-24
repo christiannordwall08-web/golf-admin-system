@@ -6,7 +6,6 @@ import { z } from "zod";
 import { getDb } from "@/server/db";
 import { PREVIEW_COOKIE, isDevPreviewEnabled, isPreviewDemoData } from "@/server/dev-preview";
 import { createPreviewProfile } from "@/server/dev-preview-profile";
-import { startPreviewSession } from "@/server/dev-preview-session";
 import { ValidationError } from "@/server/errors";
 
 export type CreateProfileState = { error?: string; firstName?: string; lastName?: string };
@@ -29,6 +28,6 @@ export async function createPreviewProfileAction(_prev: CreateProfileState, form
     throw e;
   }
   (await cookies()).set(PREVIEW_COOKIE, userId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
-  // Skapa sessionen direkt här (inte via en omdirigering till en Route Handler) så att cookien följer med.
-  redirect((await startPreviewSession(getDb(), userId, "admin")) ?? "/dev");
+  // Vidare till det första valet (Admin eller Anställd), som vid riktig inloggning.
+  redirect("/login");
 }

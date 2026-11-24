@@ -5,10 +5,10 @@ import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
-import type { SessionContext } from "@/domain/roles";
+import type { SessionContext, Workplace } from "@/domain/roles";
 import { type LoginState, loginAction } from "./actions";
 
-export function LoginForm({ audience, next }: { audience: SessionContext; next?: string }) {
+export function LoginForm({ audience, next, workplace }: { audience: SessionContext; next?: string; workplace?: Workplace }) {
   const [state, formAction] = useActionState<LoginState, FormData>(loginAction, {});
 
   return (
@@ -16,6 +16,7 @@ export function LoginForm({ audience, next }: { audience: SessionContext; next?:
       {state.error ? <Notice tone="danger">{state.error}</Notice> : null}
       <input type="hidden" name="audience" value={audience} />
       <input type="hidden" name="next" value={next ?? ""} />
+      <input type="hidden" name="workplace" value={workplace ?? ""} />
       <div>
         <Label htmlFor="email">E-postadress</Label>
         <Input

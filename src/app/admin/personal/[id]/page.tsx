@@ -61,7 +61,7 @@ export default async function EmployeeProfilePage({
       </div>
 
       <section aria-label="Sammanfattning" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Timlön idag" value={p.currentHourlyRateOre === null ? (p.hourlyPaid ? "Saknas" : "Ej timlön") : `${formatSek(p.currentHourlyRateOre)}/h`} hint={!p.hourlyPaid ? "Ingår inte i timlön" : undefined} />
+        <StatCard label="Timlön idag" value={p.currentHourlyRateOre === null ? (p.hourlyPaid ? "Saknas" : p.fixedSalary ? "Fast lön" : "Ej timlön") : `${formatSek(p.currentHourlyRateOre)}/h`} hint={!p.hourlyPaid ? "Ingår inte i timlön" : undefined} />
         <StatCard label="Genomfört i månaden" value={formatDuration(p.summary.completedMinutes)} hint={`${p.summary.completedCount} pass · enligt schema`} />
         <StatCard label="Kommande i månaden" value={formatDuration(p.summary.remainingMinutes)} hint={`${p.summary.remainingCount} pass`} />
         <StatCard label="Preliminär ersättning" value={!p.hourlyPaid && p.currentHourlyRateOre === null ? "–" : formatSek(p.estimatedCompensationOre)} hint={!p.hourlyPaid && p.currentHourlyRateOre === null ? "Ingår inte i timlön" : p.shiftsMissingRate > 0 ? `Timlön saknas för ${p.shiftsMissingRate} genomförda pass` : "Genomförda pass, ej godkänd"} />

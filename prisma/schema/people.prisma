@@ -20,6 +20,8 @@ model User {
   failedLoginCount Int       @default(0)
   lockedUntil      DateTime? @db.Timestamptz(3)
   lastLoginAt      DateTime? @db.Timestamptz(3)
+  /// Får notis (och ser bilden direkt) när personalen skickar in ett dagsavslut. Gäller administratörer.
+  receivesDailyClosings Boolean @default(false)
   /// Testdata är alltid markerad och skapas bara av prisma/seed-demo.ts i utvecklingsmiljö.
   isTestData       Boolean   @default(false)
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
@@ -86,6 +88,9 @@ model Employee {
   /// false = ingår INTE i timlön och löneunderlag (t.ex. en administratör som styr över de anställda).
   /// Visas då som "Ej timlön" i stället för "Lön saknas" och räknas inte i timlönekostnaden.
   hourlyPaid             Boolean          @default(true)
+  /// true = har fast månadslön i stället för timlön (kräver hourlyPaid = false, se CHECK i databasen).
+  /// Visas som "Fast lön" och ingår inte i timlönekostnaden.
+  fixedSalary            Boolean          @default(false)
   isTestData             Boolean          @default(false)
   createdAt              DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime         @updatedAt @db.Timestamptz(3)

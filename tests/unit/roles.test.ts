@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   USER_ROLES,
+  categoriesForWorkplace,
+  hasWorkplace,
+  homeForWorkplace,
+  workplaceFromSegment,
   actingRoleFor,
   canUseAudience,
   homeFor,
@@ -121,5 +125,33 @@ describe("två inloggningar: Admin och Anställd", () => {
     expect(isPathAllowedForContext("EMPLOYEE", "/golfshop/schema")).toBe(true);
     expect(isPathAllowedForContext("EMPLOYEE", "/bollplockare")).toBe(true);
     expect(isPathAllowedForContext("EMPLOYEE", "/admin")).toBe(false);
+  });
+});
+
+describe("arbetsplatsval vid anställd-inloggning", () => {
+  it("tolkar bara golfshop, bollplockare och bada", () => {
+    expect(workplaceFromSegment("Golfshop")).toBe("golfshop");
+    expect(workplaceFromSegment("bada")).toBe("bada");
+    expect(workplaceFromSegment("admin")).toBeNull();
+    expect(workplaceFromSegment("")).toBeNull();
+    expect(workplaceFromSegment(undefined)).toBeNull();
+  });
+
+  it("'Båda' kräver båda anställningarna, de andra valen en var", () => {
+    expect(categoriesForWorkplace("bada")).toEqual(["GOLFSHOP", "BOLLPLOCKARE"]);
+    expect(hasWorkplace(["GOLFSHOP"], "golfshop")).toBe(true);
+    expect(hasWorkplace(["GOLFSHOP"], "bollplockare")).toBe(false);
+    expect(hasWorkplace(["GOLFSHOP"], "bada")).toBe(false);
+    expect(hasWorkplace(["GOLFSHOP", "BOLLPLOCKARE"], "bada")).toBe(true);
+    expect(hasWorkplace([], "golfshop")).toBe(false);
+  });
+
+  it("startsida per val, och /anstalld är tillåten bara i anställdsession", () => {
+    expect(homeForWorkplace("golfshop")).toBe("/golfshop");
+    expect(homeForWorkplace("bollplockare")).toBe("/bollplockare");
+    expect(homeForWorkplace("bada")).toBe("/anstalld");
+    expect(isPathAllowedForContext("EMPLOYEE", "/anstalld?m=2026-11")).toBe(true);
+    expect(isPathAllowedForContext("ADMIN", "/anstalld")).toBe(false);
+    expect(isPathAllowedForContext("EMPLOYEE", "/anstalldx")).toBe(false);
   });
 });

@@ -1,7 +1,6 @@
 // =============================================================================
 // DAGSAVSLUT (golfshop) – bilden ligger i skyddad lagring, här ligger metadata.
 // Sökvägsmönster i lagringen: {år}/{månad}/{dag}/dagsavslut-{unikt-id}.{ext}
-// Implementeras i Etapp 5.
 // =============================================================================
 
 model DailyClosing {
@@ -15,6 +14,10 @@ model DailyClosing {
   mimeType             String
   sizeBytes            Int
   sha256               String
+  /// Dagens summa i ören (en siffra som admin ser). Anges av den som skickar in avslutet.
+  dayTotalOre          Int
+  /// Valfri kommentar från den som skickade in.
+  note                 String?
   status               DailyClosingStatus @default(SUBMITTED)
   uploadedAt           DateTime           @default(now()) @db.Timestamptz(3)
   reviewedAt           DateTime?          @db.Timestamptz(3)

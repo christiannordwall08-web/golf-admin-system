@@ -35,6 +35,10 @@ export const scheduleImportSchema = z.object({
         admin: z.boolean().default(false),
         /** Ingår i timlön? Standard: ja, utom för administratörer (sätt true om en admin ändå har timlön). */
         hourlyPaid: z.boolean().optional(),
+        /** Fast månadslön i stället för timlön (kräver att personen inte ingår i timlön). */
+        fixedSalary: z.boolean().default(false),
+        /** Får dagsavslut (notis och bild). Gäller administratörer. */
+        receivesDailyClosings: z.boolean().default(false),
         hourlyRateKr: z.number().min(0).optional(),
         rateFrom: date.optional(),
       }),
@@ -111,13 +115,17 @@ export async function importSchedule(db: PrismaClient, raw: ScheduleImportInput)
   const thisYear = stockholmYearMonth(new Date()).year;
   for (const e of input.employees) {
     const hourlyPaid = e.hourlyPaid ?? !e.admin;
+    if (e.fixedSalary && hourlyPaid) throw new ValidationError(`${label(e)}: fast lön kan inte kombineras med timlön.`);
+    if (e.receivesDailyClosings && !e.admin) throw new ValidationError(`${label(e)}: bara administratörer kan ta emot dagsavslut.`);
     let employee = await db.employee.findFirst({ where: { firstName: e.firstName, lastName: e.lastName, category: input.category } });
     if (employee) {
       result.employeesExisting.push(label(e));
-      if (employee.hourlyPaid !== hourlyPaid) employee = await db.employee.update({ where: { id: employee.id }, data: { hourlyPaid } });
+      if (employee.hourlyPaid !== hourlyPaid || employee.fixedSalary !== e.fixedSalary) {
+        employee = await db.employee.update({ where: { id: employee.id }, data: { hourlyPaid, fixedSalary: e.fixedSalary } });
+      }
     } else {
       employee = await db.employee.create({
-        data: { firstName: e.firstName, lastName: e.lastName, category: input.category, hourlyPaid, isTestData: true },
+        data: { firstName: e.firstName, lastName: e.lastName, category: input.category, hourlyPaid, fixedSalary: e.fixedSalary, isTestData: true },
       });
       result.employeesCreated.push(label(e));
     }
@@ -149,6 +157,10 @@ export async function importSchedule(db: PrismaClient, raw: ScheduleImportInput)
         if (linked?.role !== "ADMIN") {
           result.warnings.push(`${label(e)}: kontot är redan kopplat och är inte admin. Rollen ändras aldrig av importen.`);
         }
+      }
+      if (e.receivesDailyClosings) {
+        const linkedId = (await db.employee.findUniqueOrThrow({ where: { id: employee.id }, select: { userId: true } })).userId;
+        if (linkedId) await db.user.updateMany({ where: { id: linkedId, role: "ADMIN" }, data: { receivesDailyClosings: true } });
       }
     }
 

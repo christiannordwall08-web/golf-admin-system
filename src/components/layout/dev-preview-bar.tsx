@@ -5,6 +5,7 @@ const ITEMS: { mode: PreviewMode; label: string }[] = [
   { mode: "admin", label: "Admin" },
   { mode: "golfshop", label: "Anställd · Golfshop" },
   { mode: "bollplockare", label: "Anställd · Bollplockare" },
+  { mode: "alla", label: "Anställd · Båda" },
 ];
 
 /**

@@ -44,6 +44,7 @@ describe("lägen och namn", () => {
     expect(modeFromSegment("admin")).toBe("admin");
     expect(modeFromSegment("Golfshop")).toBe("golfshop");
     expect(modeFromSegment("bollplockare")).toBe("bollplockare");
+    expect(modeFromSegment("alla")).toBe("alla");
     expect(modeFromSegment("root")).toBeNull();
     expect(modeFromSegment("")).toBeNull();
   });
