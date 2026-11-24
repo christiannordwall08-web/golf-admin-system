@@ -48,11 +48,25 @@ Första starten tar någon minut. Ctrl+C stoppar allt.
 
 GPS-simuleringen finns **bara i förhandsvisningen** och aldrig i ett produktionsbygge.
 
-1. Gå till `/dev/gps` och tryck **Skapa fiktivt testområde** och sedan **Skapa testpass idag**.
+1. Det fiktiva testområdet skapas **automatiskt** när du skapar ditt konto. Gå till `/dev/gps` och tryck **Skapa testpass idag** (passet gäller bara idag, tryck igen en annan dag).
 2. Välj **Anställd → Som bollplockare**. Under klockan finns GPS-simuleringen (inne, utanför, dålig signal, hopp och så vidare).
 3. Titta på resultatet som **Admin**: Bollplockare (realtid och karta), Notiser och Arbetstid och rapporter.
 
 Hela teststegen och tekniken står i [BOLLPLOCKARE-GPS.md](BOLLPLOCKARE-GPS.md).
+
+## Samma bild som alla andra i teamet
+
+Alla som kör `npm run preview` utan egna filer i `.local/` får **samma påhittade testdata**: 4 anställda i Golfshop och 5 som bollplockare (som verksamheten),
+med timlön och testschema för innevarande och nästa månad, plus det fiktiva GPS-testområdet. Det är den gemensamma utgångspunkten när ni utvecklar tillsammans.
+Varje dator har sin **egen** databas. Det ni provar lokalt syns inte hos någon annan, och ni delar kod via GitHub, inte data.
+
+## Jobba tillsammans
+
+1. **Skrivåtkomst:** repots ägare lägger till dig på GitHub (Settings → Collaborators → Add people, behörighet *Write*). Du måste acceptera inbjudan.
+2. **Hämta senaste innan du börjar:** `git fetch` och `git merge origin/Golfshop` (eller `main` när den är uppdaterad).
+3. **Jobba på en egen branch** från `Golfshop` (`git checkout -b feature/golfshop-…`), gör små commits och kör `git push -u origin feature/golfshop-…`.
+4. **Pull request** mot `Golfshop` (eller `main`) när det är klart. Den andra tittar på den, hämtar den och provar den på sin localhost.
+5. Bollplockare-delen (`src/app/bollplockare/**`, `src/modules/bollplockare/**`) har egen ägare. Ändrar du där, säg till först. Allt står i [COLLABORATION.md](COLLABORATION.md).
 
 ## Egen data
 

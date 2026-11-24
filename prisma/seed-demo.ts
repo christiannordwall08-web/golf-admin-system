@@ -2,7 +2,7 @@
  * TESTDATA för lokal utveckling. Kör: npm run db:seed:demo
  *  - Vägrar köra i production eller mot annan databas än localhost.
  *  - Allt som skapas har isTestData = true och e-post på @demo.test (reserverad domän).
- *  - Skapar en testadministratör och sex anställda (3 Golfshop, 3 Bollplockare) med timlön och
+ *  - Skapar en testadministratör och nio anställda (4 Golfshop, 5 Bollplockare, som verksamheten) med timlön och
  *    testschema för innevarande och nästa månad, så att Admin har något att titta på.
  *  - Lösenord: DEV_SEED_PASSWORD om satt, annars slumpas ett och skrivs ut en gång.
  *  - Idempotent: kör man den igen skapas inget dubbelt.
@@ -21,9 +21,12 @@ const PEOPLE: { firstName: string; lastName: string; category: WorkCategory; rat
   { firstName: "Erik", lastName: "Andersson", category: "GOLFSHOP", rateKr: 140 },
   { firstName: "Lisa", lastName: "Svensson", category: "GOLFSHOP", rateKr: 150 },
   { firstName: "Sara", lastName: "Lindqvist", category: "GOLFSHOP", rateKr: 145 },
+  { firstName: "Johan", lastName: "Berg", category: "GOLFSHOP", rateKr: 140 },
   { firstName: "Oscar", lastName: "Nilsson", category: "BOLLPLOCKARE", rateKr: 140 },
   { firstName: "Emma", lastName: "Karlsson", category: "BOLLPLOCKARE", rateKr: 135 },
   { firstName: "Viktor", lastName: "Holm", category: "BOLLPLOCKARE", rateKr: 140 },
+  { firstName: "Alice", lastName: "Ek", category: "BOLLPLOCKARE", rateKr: 135 },
+  { firstName: "Noah", lastName: "Lund", category: "BOLLPLOCKARE", rateKr: 135 },
 ];
 
 async function main() {

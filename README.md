@@ -38,7 +38,7 @@ npm run dev                 # startar appen på http://localhost:3000
 ```
 
 Testinloggningar efter `db:seed:demo` (alla på `@demo.test`): `admin@demo.test` (Admin) samt anställda i Golfshop (`erik.andersson`, `lisa.svensson`,
-`sara.lindqvist`) och Bollplockare (`oscar.nilsson`, `emma.karlsson`, `viktor.holm`), med timlön och testschema för innevarande och nästa månad.
+`sara.lindqvist`, `johan.berg`) och Bollplockare (`oscar.nilsson`, `emma.karlsson`, `viktor.holm`, `alice.ek`, `noah.lund`), med timlön och testschema för innevarande och nästa månad.
 Sätt `DEV_SEED_PASSWORD` i miljön för att välja lösenord själv, annars slumpas ett.
 
 > **npm 11 och installationsskript:** npm 11 blockerar skript i beroenden som standard. `package.json` tillåter (`allowScripts`) bara det som behövs för

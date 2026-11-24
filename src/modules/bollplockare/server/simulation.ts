@@ -1,8 +1,23 @@
 import "server-only";
 import { isDevPreviewEnabled } from "@/server/dev-preview";
-import type { DbClient } from "@/server/db-client";
-import { interiorPoint, pointOutside } from "../domain/geo";
-import { getWorkArea } from "./settings";
+import type { DbClient, PrismaClient } from "@/server/db-client";
+import { type Pt, interiorPoint, offsetPoint, pointOutside } from "../domain/geo";
+import { getWorkArea, saveWorkArea } from "./settings";
+
+/**
+ * Skapar ett FIKTIVT testområde (400 × 300 m, 40 m marginal) om inget område finns. Bara i lokalt förhandsvisningsläge:
+ * utanför det görs ingenting. Skriver aldrig över ett område som redan är inställt. Returnerar true om det skapades.
+ */
+export async function ensureTestWorkArea(db: PrismaClient, actor: { id: string }): Promise<boolean> {
+  if (!isDevPreviewEnabled()) return false;
+  if ((await getWorkArea(db)).configured) return false;
+  const sw: Pt = [59.3293, 18.0686];
+  const nw = offsetPoint(sw, 300, 0);
+  const ne = offsetPoint(nw, 400, 90);
+  const se = offsetPoint(ne, 300, 180);
+  await saveWorkArea(db, { id: actor.id, role: "ADMIN" }, { polygons: [[sw, nw, ne, se].map((x) => [x[0], x[1]])], marginMeters: 40, expectedVersion: 0 });
+  return true;
+}
 
 /**
  * Punkter för GPS-simuleringen, avledda från det inställda arbetsområdet. Returnerar ALLTID null utanför lokalt

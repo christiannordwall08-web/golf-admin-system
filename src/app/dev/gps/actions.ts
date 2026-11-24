@@ -3,8 +3,8 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { addDaysToDateString, stockholmDateOf } from "@/domain/time";
-import { type Pt, offsetPoint } from "@/modules/bollplockare/domain/geo";
-import { getSettings, getWorkArea, saveWorkArea, setDayOverride } from "@/modules/bollplockare/server/settings";
+import { getSettings, setDayOverride } from "@/modules/bollplockare/server/settings";
+import { ensureTestWorkArea } from "@/modules/bollplockare/server/simulation";
 import { getDb } from "@/server/db";
 import { PREVIEW_COOKIE, findPreviewProfile, isDevPreviewEnabled } from "@/server/dev-preview";
 import { createShift } from "@/server/services/shifts";
@@ -23,14 +23,8 @@ async function profile() {
 
 export async function createTestAreaAction(): Promise<void> {
   const p = await profile();
-  const db = getDb();
-  if ((await getWorkArea(db)).configured) redirect("/dev/gps");
-  // FIKTIVT område, 400 × 300 m, endast för test. Ersätts när admin ritar det riktiga området.
-  const sw: Pt = [59.3293, 18.0686];
-  const nw = offsetPoint(sw, 300, 0);
-  const ne = offsetPoint(nw, 400, 90);
-  const se = offsetPoint(ne, 300, 180);
-  await saveWorkArea(db, { id: p.id, role: "ADMIN" }, { polygons: [[sw, nw, ne, se].map((x) => [x[0], x[1]])], marginMeters: 40, expectedVersion: 0 });
+  // FIKTIVT område, endast för test. Ersätts när admin ritar det riktiga området.
+  await ensureTestWorkArea(getDb(), p);
   redirect("/dev/gps");
 }
 

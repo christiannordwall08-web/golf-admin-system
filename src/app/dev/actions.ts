@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
+import { ensureTestWorkArea } from "@/modules/bollplockare/server/simulation";
 import { getDb } from "@/server/db";
 import { PREVIEW_COOKIE, isDevPreviewEnabled, isPreviewDemoData } from "@/server/dev-preview";
 import { createPreviewProfile } from "@/server/dev-preview-profile";
@@ -27,6 +28,8 @@ export async function createPreviewProfileAction(_prev: CreateProfileState, form
     if (e instanceof ValidationError) return { error: e.message, firstName, lastName };
     throw e;
   }
+  // Fiktivt GPS-testområde så att GPS-simuleringen fungerar direkt (bara i förhandsvisning, skriver aldrig över ett riktigt område).
+  await ensureTestWorkArea(getDb(), { id: userId });
   (await cookies()).set(PREVIEW_COOKIE, userId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
   // Vidare till det första valet (Admin eller Anställd), som vid riktig inloggning.
   redirect("/login");

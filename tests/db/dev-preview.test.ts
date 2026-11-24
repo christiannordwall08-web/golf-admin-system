@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getWorkArea } from "@/modules/bollplockare/server/settings";
+import { ensureTestWorkArea } from "@/modules/bollplockare/server/simulation";
 import { findPreviewProfile } from "@/server/dev-preview";
 import { createPreviewProfile } from "@/server/dev-preview-profile";
 import { ValidationError } from "@/server/errors";
@@ -119,5 +121,45 @@ describe("findPreviewProfile – hittar bara testprofiler, aldrig riktiga använ
   it("ger null utan id eller med okänt id", async () => {
     expect(await findPreviewProfile(db, undefined)).toBeNull();
     expect(await findPreviewProfile(db, "finns-inte")).toBeNull();
+  });
+});
+
+describe("ensureTestWorkArea – fiktivt GPS-testområde, bara i förhandsvisning", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const enablePreview = () => {
+    vi.stubEnv("DEV_PREVIEW", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/golf_admin");
+  };
+
+  it("skapar ett testområde i förhandsvisning, och skriver aldrig över ett som redan finns", async () => {
+    enablePreview();
+    const { userId } = await createPreviewProfile(db, { firstName: "Maja", lastName: "Exempel", now: NOW });
+    expect((await getWorkArea(db)).configured).toBe(false);
+
+    expect(await ensureTestWorkArea(db, { id: userId })).toBe(true);
+    const created = await getWorkArea(db);
+    expect(created.configured).toBe(true);
+    expect(created.marginMeters).toBe(40);
+
+    expect(await ensureTestWorkArea(db, { id: userId })).toBe(false); // finns redan
+    expect((await getWorkArea(db)).version).toBe(created.version);
+  });
+
+  it("gör ingenting utanför förhandsvisningsläget", async () => {
+    vi.stubEnv("DEV_PREVIEW", "");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/golf_admin");
+    const { userId } = await createPreviewProfile(db, { firstName: "Maja", lastName: "Exempel", now: NOW });
+    expect(await ensureTestWorkArea(db, { id: userId })).toBe(false);
+    expect((await getWorkArea(db)).configured).toBe(false);
+
+    vi.stubEnv("DEV_PREVIEW", "1");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await ensureTestWorkArea(db, { id: userId })).toBe(false);
+    expect((await getWorkArea(db)).configured).toBe(false);
   });
 });
