@@ -27,7 +27,10 @@ som delas (databasschema, `src/domain`, `src/server`, `src/components/ui`).
 12. **Ingen riktig personal- eller schemadata i git** (repot är publikt). Egen data ligger i `.local/` (ignoreras) och importeras med `npm run db:import`.
 13. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
     Lägg aldrig `DEV_PREVIEW` i `.env`. Rör inte spärrarna utan att uppdatera `tests/unit/dev-preview.test.ts`.
-14. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
+14. **GPS och bollplockare** (se docs/BOLLPLOCKARE-GPS.md): serverns klocka är enda tidskällan; en enskild eller osäker mätning pausar aldrig tid;
+    positioner sparas bara under ett pågående pass (bara senaste, rensas vid utcheckning); GPS-simuleringen (`/dev/gps`, `GpsSimulator`, `getSimulationPoints`) får
+    aldrig nå drift (samma spärrar som förhandsvisningen); en GPS-paus är aldrig ett automatiskt löneavdrag.
+15. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
 
 ## Next.js 16 är inte den Next.js du känner till
 

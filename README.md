@@ -6,7 +6,10 @@ En gemensam webbapplikation för tre roller: **Admin**, **Golfshop** och **Bollp
 > **Status:** Etapp 1 (grundstruktur) är klar och Admin har fått sina första riktiga sidor. Det finns **två separata inloggningar**
 > (Admin och Anställd), en adminöversikt, personal med löner och timmar, och hela scheman för Golfshop och Bollplockare (visning).
 > Anställd ser sin egen start, sitt schema och sina timmar. **Admin kan skapa, ändra, ställa in, återställa och publicera pass** (`/admin/schema`).
-> Passbyten, godkännande av pass, godkänd arbetstid, rapporter och dagsavslut byggs i kommande etapper. Se [Etapper och status](#etapper-och-status).
+> **Nytt:** inloggningsvalet Admin/Anställd följt av arbetsplatsval (golfshop, bollplockare eller båda), notiser, dagsavslut med bilduppladdning, passbyten
+> (Golfshop och Bollplockare) och **hela bollplockarmodulen**: pass utan fast sluttid, klocka in/ut, GPS-geofencing med säkerhetsmarginal, automatiska pauser,
+> Admins realtidsöversikt med karta, arbetstidsrapporter, korrigeringar och CSV-export. Se [docs/BOLLPLOCKARE-GPS.md](docs/BOLLPLOCKARE-GPS.md).
+> Golfshops automatiska tidsregistrering från schemat och månadsrapportens låsning byggs fortfarande. Se [Etapper och status](#etapper-och-status).
 
 ## Två inloggningar
 
@@ -20,6 +23,8 @@ Valet görs på `/login`. En person kan vara båda (till exempel ägaren som ock
 (testat i `tests/db/auth.test.ts` och `tests/db/queries.test.ts`).
 
 ## Kom igång
+
+> Vill du bara se och prova allt på din egen dator? Följ [docs/KOM-IGANG.md](docs/KOM-IGANG.md): `git clone`, `npm install`, `npm run preview`.
 
 Krav: Node.js 22 eller nyare. Ingen Docker eller installerad databas behövs i utveckling.
 
@@ -121,11 +126,13 @@ docs/                 Arkitektur, datamodell, API-kontrakt, samarbetsregler, Bol
 
 ## Dokumentation
 
+- [**Kom igång på din egen dator** (egen localhost, steg för steg)](docs/KOM-IGANG.md)
 - [Arkitektur och teknikval](docs/ARCHITECTURE.md)
 - [Datamodell: hur personal, pass, lön och tid hänger ihop](docs/DATA-MODEL.md)
 - [API- och tjänstekontrakt](docs/API-CONTRACTS.md)
 - [Samarbete: branches, ägarskap, migrationer, pull requests](docs/COLLABORATION.md)
 - [Integration med Bollplockare](docs/BOLLPLOCKARE-INTEGRATION.md)
+- [Bollplockare: schema, GPS och tidsregistrering (teknik, begränsningar, integritet, test)](docs/BOLLPLOCKARE-GPS.md)
 
 ## Etapper och status
 
@@ -134,6 +141,6 @@ docs/                 Arkitektur, datamodell, API-kontrakt, samarbetsregler, Bol
 | 1 | Grundstruktur, databas, roller, inloggning, designsystem, dokumentation | **Klar** |
 | 2 | Admin: dashboard, personalregister, profiler, scheman, publicering | **Delvis:** dashboard, personal & löner, profil och schema (visning) klara. Skapa, ändra, ställ in/återställ och publicera pass klart. Kopiera vecka/månad, personhantering, lösenord och notiser återstår |
 | 3 | Golfshop: startsida, schema, godkännande, passbyten | **Delvis:** start, mitt schema och mina timmar klara. Godkänna pass och passbyten återstår |
-| 4 | Automatisk tidsregistrering, timlön, månadsrapporter, export | Ej påbörjad |
-| 5 | Dagsavslut (bilduppladdning, lagring, notiser) | Ej påbörjad |
+| 4 | Automatisk tidsregistrering, timlön, månadsrapporter, export | **Delvis:** bollplockarnas registrerade tid, granskning, godkännande, korrigering och CSV klara. Golfshops automatiska registrering från schema och månadslåsning återstår |
+| 5 | Dagsavslut (bilduppladdning, lagring, notiser) | **Klar** (lokal lagring `STORAGE_DIR`) |
 | 6 | Kvalitet, säkerhetstest, integration med Bollplockare, driftsättning | Ej påbörjad |

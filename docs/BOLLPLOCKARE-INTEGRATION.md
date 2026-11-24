@@ -1,5 +1,15 @@
 # Integration med Bollplockare
 
+> **Status:** bollplockarmodulen (schemaläggning utan fast sluttid, klocka in/ut, GPS-geofencing med säkerhetsmarginal, pauser, notiser,
+> passbyten, rapporter och CSV) är implementerad. Se **[BOLLPLOCKARE-GPS.md](./BOLLPLOCKARE-GPS.md)** för hur den fungerar, begränsningar och integritet.
+> Förslaget nedan beskriver det ursprungliga gränssnittet och gäller fortfarande för `WorkTimeEntry`.
+>
+> **Delade filer som ändrats för den (granska innan merge, se COLLABORATION.md):** `prisma/schema/{people,scheduling,time-pay,enums,bollplockare}.prisma`
+> (additivt: `Shift.openEnded`, `ShiftSwapRequest.kind/counterShiftId`, `WorkTimeCorrection.detail`, nya enum-värden, nya `Bollplockare*`/`Gps*`-modeller),
+> migrationerna `20261125100000…`–`20261125120000…` (inkl. en ny version av triggerfunktionen `work_time_entry_guard`),
+> `src/domain/{roles,hours}.ts` (nya behörigheterna `worktime:clock` och `range:configure`), `src/server/services/{shifts,notifications}.ts`,
+> `src/server/queries/*`, `src/components/layout/*`, `src/components/schedule/*`, samt `src/app/bollplockare/**` och `src/modules/bollplockare/**`.
+
 Bollplockarnas GPS-baserade in-/utcheckning och tidsregistrering byggs av Bollplockare-utvecklaren. Admin hanterar redan nu
 bollplockarna i samma system. Det här dokumentet är **förslaget till gränssnitt** mellan de två delarna; justera det tillsammans innan något byggs.
 

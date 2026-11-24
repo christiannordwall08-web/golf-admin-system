@@ -141,6 +141,12 @@ frånvaro markeras som `ABSENT` och ger ingen post med godkänd tid.
    därefter ändras siffrorna bara via `PayrollAdjustment` med orsak, vem och när.
 4. Ändrad timlön gäller bara från ett senare datum (`planRateChange`). Tidigare pass räknas med den lön som gällde då.
 
+## Bollplockare, driving range och GPS (se BOLLPLOCKARE-GPS.md)
+Nya tabeller: `BollplockareSettings`, `BollplockareDayOverride`, `GpsWorkArea`, `BollplockareSession` (1:1 med `WorkTimeEntry`), `GpsPause`, `GpsEvent` (append-only).
+Ändrade gemensamma modeller (additivt): `Shift.openEnded`, `ShiftSwapRequest.kind` (`DIRECT/OPEN/EXCHANGE/CHANGE`) och `counterShiftId`,
+`WorkTimeCorrection.detail`, nya `NotificationType`-värden, `User.receivesDailyClosings`, `Employee.fixedSalary`, `DailyClosing.dayTotalOre/note`.
+Pass utan fast sluttid (`openEnded`) har 0 schemalagda minuter; deras arbetstid är den registrerade (`WorkTimeEntry.registeredMinutes`).
+
 ## Öppna frågor till verksamheten
 - Ska pass som den anställde **aldrig accepterat** (`PENDING`) ändå ge preliminär tidsregistrering? Förslag: ja, eftersom schemat är fastställt, men
   Admin ser tydligt att godkännande saknas.
