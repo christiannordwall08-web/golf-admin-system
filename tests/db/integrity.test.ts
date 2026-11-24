@@ -221,7 +221,7 @@ describe("arbetstid: framtid och dubbletter (spec 10, Test 6 + 12)", () => {
         approvedAt: new Date(),
         approvedById: admin.id,
       }),
-    ).rejects.toThrow(/framtida arbetstid/);
+    ).rejects.toThrow(/framtida eller pågående arbetstid/);
   });
 
   it("GPS: incheckning före passets slut ger en preliminär post, men den kan inte godkännas förrän efteråt", async () => {
@@ -238,7 +238,7 @@ describe("arbetstid: framtid och dubbletter (spec 10, Test 6 + 12)", () => {
         where: { id: entry.id },
         data: { status: "APPROVED", approvedMinutes: 240, approvedAt: new Date(), approvedById: admin.id },
       }),
-    ).rejects.toThrow(/framtida arbetstid/);
+    ).rejects.toThrow(/framtida eller pågående arbetstid/);
   });
 
   it("registreringen tillhör den som faktiskt arbetade passet efter ett byte (Test 5 + 8)", async () => {
