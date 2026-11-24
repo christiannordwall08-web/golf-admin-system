@@ -155,3 +155,13 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# ---- Golf Admin System ----
+# Next.js genererade filer
+next-env.d.ts
+# Prisma-klient genereras vid install (npm run db:generate)
+/src/generated/
+# Lokal utvecklingsdatabas (npm run db:dev)
+/.pgdata/
+# Lokal lagring av uppladdade filer i utveckling (Etapp 5)
+/.storage/
