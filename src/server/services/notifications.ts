@@ -1,4 +1,5 @@
 import { safeInternalPath } from "@/domain/roles";
+import type { NotificationType } from "@/generated/prisma/enums";
 import type { DbClient } from "@/server/db-client";
 
 /**
@@ -8,22 +9,7 @@ import type { DbClient } from "@/server/db-client";
  */
 export type NotificationInput = {
   userIds: readonly string[];
-  type:
-    | "SCHEDULE_PUBLISHED"
-    | "SHIFT_APPROVAL_NEEDED"
-    | "SHIFT_CHANGED"
-    | "SHIFT_UPCOMING"
-    | "SWAP_REQUESTED"
-    | "SWAP_COLLEAGUE_ACCEPTED"
-    | "SWAP_COLLEAGUE_DECLINED"
-    | "SWAP_APPROVED"
-    | "SWAP_DENIED"
-    | "SWAP_MESSAGE"
-    | "SWAP_CANCELLED"
-    | "DAILY_CLOSING_SUBMITTED"
-    | "DAILY_CLOSING_MISSING"
-    | "WORKTIME_NEEDS_REVIEW"
-    | "PAYROLL_REPORT_READY";
+  type: NotificationType;
   title: string;
   body?: string | null;
   linkPath?: string | null;

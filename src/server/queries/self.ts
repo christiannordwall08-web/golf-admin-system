@@ -51,7 +51,7 @@ export async function getMyMonth(
   if (!employee) throw new ForbiddenError();
 
   const published = { publicationStatus: "PUBLISHED" as const };
-  const select = { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true };
+  const select = { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true, openEnded: true };
   const [rows, upcoming, pendingApprovals] = await Promise.all([
     db.shift.findMany({
       where: { assignedEmployeeId: employee.id, startsAt: { gte: start, lt: end }, ...published },

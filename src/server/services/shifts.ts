@@ -11,7 +11,19 @@ import { dateStringToDbDate, stockholmDateOf, stockholmYearMonth } from "@/domai
 import { writeAudit } from "@/server/audit";
 import type { DbClient, PrismaClient } from "@/server/db-client";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors";
+import { getRangeDay } from "@/modules/bollplockare/server/settings";
+import { openEndedWindow } from "@/modules/bollplockare/domain/range-time";
+import { notify } from "./notifications";
 import type { Actor } from "./pay-rates";
+
+/** Intervallet för ett pass utan fast sluttid (bollplockare): från tidigaste incheckning, utan arbetad sluttid. */
+async function openEndedInterval(db: DbClient, date: string): Promise<{ ok: true; startsAt: Date; endsAt: Date } | { ok: false; issue: ShiftIssue }> {
+  const window = openEndedWindow(await getRangeDay(db, date));
+  if (!window) {
+    return { ok: false, issue: { code: "INVALID_TIMES", severity: "error", message: "Rangen är stängd den dagen. Bollplockare kan inte schemaläggas då." } };
+  }
+  return { ok: true, ...window };
+}
 
 /**
  * Skapa, ändra, ställa in, återställa och publicera pass (Admin).
@@ -47,7 +59,7 @@ export type ShiftWriteResult =
       needsConfirm: boolean;
     };
 
-const OVERLAP_ISSUE: ShiftIssue = {
+export const OVERLAP_ISSUE: ShiftIssue = {
   code: "OVERLAP",
   severity: "error",
   message: "Den anställde har redan ett överlappande pass. Ladda om sidan och försök igen.",
@@ -63,20 +75,20 @@ function assertCan(actor: Actor, permission: Parameters<typeof can>[1]): void {
 }
 
 /** Fel blockerar. Bara varningar kräver bekräftelse. Returnerar null om det är fritt fram. */
-function gate(issues: ShiftIssue[], confirm: boolean | undefined): Extract<ShiftWriteResult, { ok: false }> | null {
+export function gate(issues: ShiftIssue[], confirm: boolean | undefined): Extract<ShiftWriteResult, { ok: false }> | null {
   if (issues.some((i) => i.severity === "error")) return { ok: false, issues, needsConfirm: false };
   if (issues.length > 0 && !confirm) return { ok: false, issues, needsConfirm: true };
   return null;
 }
 
-async function overlappingShifts(db: DbClient, employeeId: string, startsAt: Date, endsAt: Date) {
+export async function overlappingShifts(db: DbClient, employeeId: string, startsAt: Date, endsAt: Date) {
   return db.shift.findMany({
     where: { assignedEmployeeId: employeeId, startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
     select: { id: true, startsAt: true, endsAt: true, workStatus: true },
   });
 }
 
-async function scheduleFor(db: DbClient, category: WorkCategory, startsAt: Date) {
+export async function scheduleFor(db: DbClient, category: WorkCategory, startsAt: Date) {
   const { year, month } = stockholmYearMonth(startsAt);
   return db.schedule.upsert({
     where: { category_year_month: { category, year, month } },
@@ -85,7 +97,7 @@ async function scheduleFor(db: DbClient, category: WorkCategory, startsAt: Date)
   });
 }
 
-const PAST_WARNING: ShiftIssue = {
+export const PAST_WARNING: ShiftIssue = {
   code: "ALREADY_ENDED",
   severity: "warning",
   message:
@@ -107,7 +119,9 @@ export async function createShift(
   });
   if (!employee) throw new NotFoundError("Den anställde finns inte.");
 
-  const interval = buildShiftInterval(input);
+  // Bollplockare har inga fasta tider: passet utgår från rangens stängningstid och admin anger aldrig en sluttid.
+  const openEnded = employee.category === "BOLLPLOCKARE";
+  const interval = openEnded ? await openEndedInterval(db, input.date) : buildShiftInterval(input);
   if (!interval.ok) return { ok: false, issues: [interval.issue], needsConfirm: false };
   const { startsAt, endsAt } = interval;
 
@@ -134,8 +148,9 @@ export async function createShift(
           originalEmployeeId: employee.id,
           startsAt,
           endsAt,
-          localDate: dateStringToDbDate(stockholmDateOf(startsAt)),
+          localDate: dateStringToDbDate(openEnded ? input.date : stockholmDateOf(startsAt)),
           publicationStatus: input.publish ? "PUBLISHED" : "DRAFT",
+          openEnded,
           notes: input.notes?.trim() || null,
           createdById: actor.id,
         },
@@ -195,7 +210,8 @@ export async function updateShift(
   });
   if (!employee) throw new NotFoundError("Den anställde finns inte.");
 
-  const interval = buildShiftInterval(input);
+  // Pass utan fast sluttid ändras bara på datum, person och notering: tiderna följer rangens stängningstid.
+  const interval = existing.openEnded ? await openEndedInterval(db, input.date) : buildShiftInterval(input);
   if (!interval.ok) return { ok: false, issues: [interval.issue], needsConfirm: false };
   const { startsAt, endsAt } = interval;
   const notes = input.notes?.trim() || null;
@@ -235,7 +251,7 @@ export async function updateShift(
           assignedEmployeeId: employee.id,
           startsAt,
           endsAt,
-          localDate: dateStringToDbDate(stockholmDateOf(startsAt)),
+          localDate: dateStringToDbDate(existing.openEnded ? input.date : stockholmDateOf(startsAt)),
           scheduleId: schedule.id,
           notes,
           ...(resetApproval ? { approvalStatus: "PENDING" as const } : {}),
@@ -253,6 +269,19 @@ export async function updateShift(
             reason: "ADMIN_REASSIGNMENT",
             changedById: actor.id,
           },
+        });
+      }
+      if (existing.publicationStatus === "PUBLISHED" && material) {
+        const users = await tx.employee.findMany({ where: { id: { in: [existing.assignedEmployeeId, employee.id] } }, select: { userId: true } });
+        const label = `${input.date}${existing.openEnded ? "" : ` ${input.from.replace(":", ".")}–${input.to.replace(":", ".")}`}`;
+        await notify(tx, {
+          userIds: users.flatMap((u) => (u.userId ? [u.userId] : [])),
+          type: "SHIFT_CHANGED",
+          title: employee.id === existing.assignedEmployeeId ? `Ändrat pass ${label}` : `Ändrad bemanning ${label}`,
+          body: "Schemat har ändrats. Se ditt schema.",
+          linkPath: existing.category === "BOLLPLOCKARE" ? "/bollplockare/schema" : "/golfshop/schema",
+          entityType: "Shift",
+          entityId: existing.id,
         });
       }
       await writeAudit(tx, {
@@ -388,14 +417,31 @@ export async function publishShifts(
   if (!schedule) return { published: 0 };
 
   return db.$transaction(async (tx) => {
+    const drafts = await tx.shift.findMany({
+      where: { scheduleId: schedule.id, publicationStatus: "DRAFT", workStatus: { not: "CANCELLED" } },
+      select: { assignedEmployee: { select: { userId: true } } },
+    });
     const { count } = await tx.shift.updateMany({
       where: { scheduleId: schedule.id, publicationStatus: "DRAFT", workStatus: { not: "CANCELLED" } },
       data: { publicationStatus: "PUBLISHED", version: { increment: 1 } },
     });
     if (count === 0) return { published: 0 };
+    const perUser = new Map<string, number>();
+    for (const d of drafts) if (d.assignedEmployee.userId) perUser.set(d.assignedEmployee.userId, (perUser.get(d.assignedEmployee.userId) ?? 0) + 1);
+    for (const [userId, n] of perUser) {
+      await notify(tx, {
+        userIds: [userId],
+        type: "SCHEDULE_PUBLISHED",
+        title: `Nytt schema: ${n} ${n === 1 ? "arbetspass" : "arbetspass"} publicerade`,
+        body: `${input.year}-${String(input.month).padStart(2, "0")}. Se ditt schema och godkänn passen.`,
+        linkPath: input.category === "BOLLPLOCKARE" ? "/bollplockare/schema" : "/golfshop/schema",
+        entityType: "Schedule",
+        entityId: schedule.id,
+      });
+    }
     await tx.schedule.update({ where: { id: schedule.id }, data: { status: "PUBLISHED", publishedAt: now } });
     await tx.schedulePublication.create({
-      data: { scheduleId: schedule.id, publishedById: actor.id, shiftCount: count, employeesNotified: 0 },
+      data: { scheduleId: schedule.id, publishedById: actor.id, shiftCount: count, employeesNotified: perUser.size },
     });
     await writeAudit(tx, {
       actorId: actor.id,

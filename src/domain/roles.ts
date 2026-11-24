@@ -149,6 +149,9 @@ const ALL_PERMISSIONS = [
   "worktime:correct",
   "payroll:read:all",
   "payroll:approve",
+  // Bollplockare: klocka in/ut (egen registrering) och driving range/GPS-inställningar (Admin)
+  "worktime:clock",
+  "range:configure",
   // Dagsavslut
   "dailyclosing:submit",
   "dailyclosing:read:all",
@@ -165,6 +168,7 @@ const STAFF_COMMON: readonly Permission[] = [
   "shift:respond:own",
   "swap:request",
   "worktime:read:own",
+  "worktime:clock",
   "notifications:read:own",
 ];
 

@@ -64,7 +64,7 @@ export async function getEmployeeProfile(
 
   const rows = await db.shift.findMany({
     where: { assignedEmployeeId: employeeId, startsAt: { gte: start, lt: end } },
-    select: { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true },
+    select: { id: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, approvalStatus: true, notes: true, openEnded: true },
     orderBy: { startsAt: "asc" },
   });
 

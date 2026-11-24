@@ -22,6 +22,8 @@ export type ScheduleShift = {
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
   workStatus: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "ABSENT";
   phase: ShiftPhase;
+  /** Pass utan fast sluttid (bollplockare): startsAt är tidigaste incheckning och endsAt är inte en arbetad sluttid. */
+  openEnded: boolean;
   /** Fri notering på passet (t.ex. "öppnar"). */
   note: string | null;
 };
@@ -36,6 +38,7 @@ const shiftSelect = {
   approvalStatus: true,
   workStatus: true,
   notes: true,
+  openEnded: true,
   assignedEmployee: { select: { id: true, firstName: true, lastName: true, hourlyPaid: true, user: { select: { role: true } } } },
   originalEmployee: { select: { id: true, firstName: true, lastName: true } },
 } as const;
@@ -50,6 +53,7 @@ type ShiftRow = {
   approvalStatus: ScheduleShift["approvalStatus"];
   workStatus: ScheduleShift["workStatus"];
   notes: string | null;
+  openEnded: boolean;
   assignedEmployee: { id: string; firstName: string; lastName: string; hourlyPaid: boolean; user: { role: string } | null };
   originalEmployee: { id: string; firstName: string; lastName: string };
 };
@@ -72,6 +76,7 @@ export function toScheduleShift(row: ShiftRow, now: Date): ScheduleShift {
     approvalStatus: row.approvalStatus,
     workStatus: row.workStatus,
     phase: shiftPhase(hour, now),
+    openEnded: row.openEnded,
     note: row.notes,
   };
 }

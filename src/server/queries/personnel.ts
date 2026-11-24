@@ -1,7 +1,9 @@
 import { estimateCompensation, nextShift, summarizeShifts } from "@/domain/hours";
 import { resolveRateForDate } from "@/domain/pay-rates";
 import type { WorkCategory } from "@/domain/roles";
-import { monthBounds, stockholmDateOf } from "@/domain/time";
+import { monthParam, shiftMonth } from "@/domain/calendar";
+import { compensationOre } from "@/domain/money";
+import { dateStringToDbDate, monthBounds, stockholmDateOf } from "@/domain/time";
 import type { DbClient } from "@/server/db-client";
 import { type Actor, assertCan, compareNames, fullName, toHourShift, toRatePeriods } from "./mappers";
 
@@ -82,7 +84,7 @@ export async function getPersonnelOverview(
   const [monthShifts, upcoming] = await Promise.all([
     db.shift.findMany({
       where: { assignedEmployeeId: { in: ids }, startsAt: { gte: start, lt: end } },
-      select: { id: true, assignedEmployeeId: true, startsAt: true, endsAt: true, localDate: true, workStatus: true },
+      select: { id: true, assignedEmployeeId: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, openEnded: true },
     }),
     db.shift.findMany({
       where: {
@@ -90,11 +92,26 @@ export async function getPersonnelOverview(
         endsAt: { gt: now },
         workStatus: { notIn: ["CANCELLED", "ABSENT"] },
       },
-      select: { id: true, assignedEmployeeId: true, startsAt: true, endsAt: true, localDate: true, workStatus: true },
+      select: { id: true, assignedEmployeeId: true, startsAt: true, endsAt: true, localDate: true, workStatus: true, openEnded: true },
       orderBy: { startsAt: "asc" },
       take: 5000,
     }),
   ]);
+
+  // Bollplockare har ingen schemalagd arbetstid: deras tid är den REGISTRERADE (klocka in/ut), godkänd om admin godkänt den.
+  const bollIds = employees.filter((e) => e.category === "BOLLPLOCKARE").map((e) => e.id);
+  const ym = { year: input.year, month: input.month };
+  const workEntries = bollIds.length
+    ? await db.workTimeEntry.findMany({
+        where: {
+          employeeId: { in: bollIds },
+          source: "GPS",
+          registeredEndsAt: { not: null },
+          workDate: { gte: dateStringToDbDate(`${monthParam(ym)}-01`), lt: dateStringToDbDate(`${monthParam(shiftMonth(ym, 1))}-01`) },
+        },
+        select: { employeeId: true, registeredMinutes: true, approvedMinutes: true },
+      })
+    : [];
 
   const byEmployee = new Map<string, typeof monthShifts>();
   for (const s of monthShifts) byEmployee.set(s.assignedEmployeeId, [...(byEmployee.get(s.assignedEmployeeId) ?? []), s]);
@@ -108,6 +125,10 @@ export async function getPersonnelOverview(
     const summary = summarizeShifts(shifts, now);
     const comp = estimateCompensation(shifts, rates, now);
     const next = nextByEmployee.get(e.id);
+    const worked = workEntries.filter((w) => w.employeeId === e.id).reduce((n, w) => n + (w.approvedMinutes ?? w.registeredMinutes), 0);
+    const rateNow = resolveRateForDate(rates, today)?.hourlyRateOre ?? null;
+    // Pass utan fast sluttid ger 0 schemalagda minuter; deras faktiska (registrerade) tid läggs till här.
+    const workedComp = e.hourlyPaid && rateNow !== null ? compensationOre(worked, rateNow) : 0;
     return {
       employeeId: e.id,
       firstName: e.firstName,
@@ -119,10 +140,10 @@ export async function getPersonnelOverview(
       hourlyPaid: e.hourlyPaid,
       fixedSalary: e.fixedSalary,
       hourlyRateOre: resolveRateForDate(rates, today)?.hourlyRateOre ?? null,
-      completedMinutes: summary.completedMinutes,
+      completedMinutes: summary.completedMinutes + worked,
       remainingMinutes: summary.remainingMinutes,
-      totalMinutes: summary.totalMinutes,
-      estimatedCompensationOre: comp.compensationOre,
+      totalMinutes: summary.totalMinutes + worked,
+      estimatedCompensationOre: comp.compensationOre + workedComp,
       shiftsMissingRate: comp.shiftsMissingRate,
       nextShift: next ? { startsAt: next.startsAt, endsAt: next.endsAt } : null,
     };

@@ -20,6 +20,7 @@ export function toHourShift(row: {
   endsAt: Date;
   localDate: Date;
   workStatus: HourShift["workStatus"];
+  openEnded?: boolean;
 }): HourShift {
   return {
     id: row.id,
@@ -27,6 +28,7 @@ export function toHourShift(row: {
     endsAt: row.endsAt,
     localDate: dbDateToString(row.localDate),
     workStatus: row.workStatus,
+    openEnded: row.openEnded ?? false,
   };
 }
 

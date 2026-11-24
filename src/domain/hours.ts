@@ -17,6 +17,8 @@ export type HourShift = {
   /** Stockholm-datum "YYYY-MM-DD" för starttiden. */
   localDate: string;
   workStatus: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "ABSENT";
+  /** Pass utan fast sluttid (bollplockare): ingen schemalagd arbetstid, den registreras vid utcheckning. */
+  openEnded?: boolean;
 };
 
 export type ShiftPhase = "COMPLETED" | "ONGOING" | "UPCOMING" | "CANCELLED" | "ABSENT";
@@ -29,7 +31,8 @@ export function shiftPhase(shift: HourShift, now: Date): ShiftPhase {
   return "UPCOMING";
 }
 
-export function shiftMinutes(shift: Pick<HourShift, "startsAt" | "endsAt">): number {
+export function shiftMinutes(shift: Pick<HourShift, "startsAt" | "endsAt"> & { openEnded?: boolean }): number {
+  if (shift.openEnded) return 0;
   return minutesBetween(shift.startsAt, shift.endsAt);
 }
 
