@@ -57,5 +57,15 @@
   },
   "overrides": {
     "effect": "^3.22.5"
+  },
+  "allowScripts": {
+    "@embedded-postgres/darwin-arm64": true,
+    "@embedded-postgres/darwin-x64": true,
+    "@embedded-postgres/linux-arm": true,
+    "@embedded-postgres/linux-arm64": true,
+    "@embedded-postgres/linux-ia32": true,
+    "@embedded-postgres/linux-ppc64": true,
+    "@embedded-postgres/linux-x64": true,
+    "@embedded-postgres/windows-x64": true
   }
 }

@@ -24,6 +24,9 @@ Testinloggningar efter `db:seed:demo` (alla på `@demo.test`): `admin@demo.test`
 `lisa.svensson@demo.test` (Golfshop), `oscar.nilsson@demo.test` och `emma.karlsson@demo.test` (Bollplockare).
 Sätt `DEV_SEED_PASSWORD` i miljön för att välja lösenord själv, annars slumpas ett.
 
+> **npm 11 och installationsskript:** npm 11 blockerar skript i beroenden som standard. `package.json` tillåter (`allowScripts`) bara det som behövs för
+> testdatabasen (`@embedded-postgres/*`).
+
 **Riktig drift:** kör inte `db:seed:demo`. Skapa första administratören med `npm run db:seed` (se `.env.example`).
 
 ## Kommandon
