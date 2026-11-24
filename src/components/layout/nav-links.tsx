@@ -8,8 +8,11 @@ import {
   FileSpreadsheet,
   LayoutDashboard,
   type LucideIcon,
+  Map as MapIcon,
   MapPin,
+  Settings,
   Store,
+  User,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +30,9 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   camera: Camera,
   shop: Store,
   pin: MapPin,
+  map: MapIcon,
+  settings: Settings,
+  user: User,
 };
 
 export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

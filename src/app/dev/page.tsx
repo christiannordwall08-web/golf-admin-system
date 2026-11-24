@@ -80,6 +80,7 @@ export default async function DevHome({ searchParams }: { searchParams: Promise<
           <div className="flex gap-2">
             <a href="/dev/design" className="inline-flex h-10 items-center rounded-lg border border-line bg-white px-4 text-sm font-medium shadow-card hover:bg-brand-50">Galleri</a>
             <a href="/login" className="inline-flex h-10 items-center rounded-lg border border-line bg-white px-4 text-sm font-medium shadow-card hover:bg-brand-50">Inloggningsval</a>
+            <a href="/dev/gps" className="inline-flex h-10 items-center rounded-lg border border-line bg-white px-4 text-sm font-medium shadow-card hover:bg-brand-50">GPS-simulering</a>
           </div>
         </CardContent>
       </Card>

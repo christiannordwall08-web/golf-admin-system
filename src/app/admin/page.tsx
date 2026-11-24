@@ -1,4 +1,4 @@
-import { AlarmClock, CalendarClock, CircleDollarSign, Clock, FileEdit, Hourglass, ShieldCheck, Users, Repeat, UserCheck } from "lucide-react";
+import { AlarmClock, CalendarClock, CircleDollarSign, Clock, FileEdit, Hourglass, ShieldCheck, Users, Repeat, UserCheck, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminTag, ApprovalBadge, CategoryBadge, PhaseBadge } from "@/components/schedule/shift-badges";
@@ -10,10 +10,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Table, TableWrap, Td, Th } from "@/components/ui/table";
 import { formatDuration, formatSek } from "@/domain/money";
-import { formatDateShort, formatMonthYear, formatTimeRange } from "@/domain/time";
+import { formatDateShort, formatMonthYear, formatTimeRange, stockholmDateOf } from "@/domain/time";
 import { requireAdminArea, toActor } from "@/server/auth/current-user";
 import { getDb } from "@/server/db";
 import { getAdminDashboard } from "@/server/queries/dashboard";
+import { getClosingForDate } from "@/server/services/daily-closing";
 
 export const metadata: Metadata = { title: "Översikt" };
 
@@ -21,7 +22,10 @@ export default async function AdminHome() {
   // Samma kontroll som layouten: en sida ska aldrig förlita sig på att en layout körts.
   const session = await requireAdminArea();
   const now = new Date();
-  const d = await getAdminDashboard(getDb(), toActor(session), now);
+  const [d, closingToday] = await Promise.all([
+    getAdminDashboard(getDb(), toActor(session), now),
+    getClosingForDate(getDb(), toActor(session), stockholmDateOf(now)),
+  ]);
   const ongoing = d.today.filter((s) => s.phase === "ONGOING").length;
   const todayPeople = new Set(d.today.map((s) => s.employeeId)).size;
 
@@ -48,6 +52,12 @@ export default async function AdminHome() {
         <StatCard label="Preliminär lönekostnad" value={formatSek(d.monthTotals.estimatedCompensationOre)} icon={CircleDollarSign} hint={d.monthTotals.shiftsMissingRate > 0 ? `${d.monthTotals.shiftsMissingRate} genomförda pass saknar timlön och ingår inte` : "Genomförda pass × timlön, ej godkänd"} />
         <StatCard label="Väntar på godkännande" value={d.actions.pendingApprovals} icon={ShieldCheck} hint="Pass som personalen inte accepterat än" />
         <StatCard label="Bytesförfrågningar" value={d.actions.openSwapRequests} icon={Repeat} hint="Öppna ärenden" />
+        <StatCard
+          label="Dagens summa (dagsavslut)"
+          value={closingToday ? formatSek(closingToday.dayTotalOre) : "–"}
+          icon={Wallet}
+          hint={closingToday ? `Inskickat idag (${closingToday.count} st). Se Dagsavslut.` : "Inget dagsavslut inskickat idag än"}
+        />
         <StatCard label="Utkast (ej publicerade pass)" value={d.actions.draftShifts} icon={FileEdit} hint="Framtida pass" />
       </section>
 

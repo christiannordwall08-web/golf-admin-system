@@ -172,6 +172,7 @@ export default async function AdminSchedulePage({
           phase: s.phase,
           approvalStatus: s.approvalStatus,
           publicationStatus: s.publicationStatus,
+          openEnded: s.openEnded,
           note: s.note,
         }))}
       />

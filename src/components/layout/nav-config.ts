@@ -9,7 +9,10 @@ export type NavIcon =
   | "report"
   | "camera"
   | "shop"
-  | "pin";
+  | "pin"
+  | "map"
+  | "settings"
+  | "user";
 
 export type NavItem = {
   href: string;
@@ -36,20 +39,25 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/admin", label: "Översikt", icon: "dashboard" },
     { href: "/admin/personal", label: "Personal & löner", icon: "users" },
     { href: "/admin/schema", label: "Schema", icon: "calendar" },
-    { href: "/admin/passbyten", label: "Passbyten", icon: "swap", soon: true },
-    { href: "/admin/rapporter", label: "Arbetstid & rapporter", icon: "report", soon: true },
-    { href: "/admin/dagsavslut", label: "Dagsavslut", icon: "camera", soon: true },
+    { href: "/admin/passbyten", label: "Passbyten", icon: "swap" },
+    { href: "/admin/bollplockare", label: "Bollplockare (live)", icon: "pin" },
+    { href: "/admin/bollplockare/omrade", label: "Karta & arbetsområde", icon: "map" },
+    { href: "/admin/bollplockare/installningar", label: "Range & GPS-inställningar", icon: "settings" },
+    { href: "/admin/rapporter", label: "Arbetstid & rapporter", icon: "report" },
+    { href: "/admin/dagsavslut", label: "Dagsavslut", icon: "camera" },
   ],
   GOLFSHOP: [
     { href: "/golfshop", label: "Start", icon: "dashboard" },
     { href: "/golfshop/schema", label: "Mitt schema", icon: "calendar" },
     { href: "/golfshop/timmar", label: "Mina timmar", icon: "clock" },
-    { href: "/golfshop/byten", label: "Passbyten", icon: "swap", soon: true },
-    { href: "/golfshop/dagsavslut", label: "Dagsavslut", icon: "camera", soon: true },
+    { href: "/golfshop/byten", label: "Passbyten", icon: "swap" },
+    { href: "/golfshop/dagsavslut", label: "Dagsavslut", icon: "camera" },
   ],
   BOLLPLOCKARE: [
     { href: "/bollplockare", label: "Start", icon: "dashboard" },
     { href: "/bollplockare/schema", label: "Mitt schema", icon: "calendar" },
     { href: "/bollplockare/timmar", label: "Mina timmar", icon: "clock" },
+    { href: "/bollplockare/byten", label: "Passbyten", icon: "swap" },
+    { href: "/bollplockare/profil", label: "Min profil", icon: "user" },
   ],
 };

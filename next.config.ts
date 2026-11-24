@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   // Pakets med inbyggda binärer ska inte buntas av Turbopack.
   serverExternalPackages: ["@node-rs/argon2", "pg"],
   poweredByHeader: false,
+  // Dagsavslut skickar en bild (högst 10 MB) via en Server Action. Standardgränsen är 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "12mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

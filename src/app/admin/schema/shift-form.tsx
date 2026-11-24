@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
@@ -30,6 +30,9 @@ export function ShiftForm({
 }) {
   const [state, formAction] = useActionState<ShiftFormState, FormData>(mode === "create" ? createShiftAction : updateShiftAction, {});
   const v = state.values ?? defaults;
+  const [selected, setSelected] = useState(v.employeeId);
+  // Bollplockare har inga fasta tider: passet utgår från rangens stängningstid och admin anger ingen sluttid.
+  const openEnded = employees.find((e) => e.id === selected)?.category === "BOLLPLOCKARE";
   const categories = [...new Set(employees.map((e) => e.category))] as WorkCategory[];
 
   return (
@@ -55,7 +58,7 @@ export function ShiftForm({
       <div>
         <Label htmlFor="employeeId">Anställd</Label>
         {/* key: en <select> plockar inte upp ett nytt defaultValue efter att formuläret återställts, så den omskapas när valet ändras. */}
-        <Select key={v.employeeId} id="employeeId" name="employeeId" defaultValue={v.employeeId} required>
+        <Select key={v.employeeId} id="employeeId" name="employeeId" defaultValue={v.employeeId} required onChange={(e) => setSelected(e.target.value)}>
           {categories.map((c) => (
             <optgroup key={c} label={CATEGORY_LABEL[c]}>
               {employees.filter((e) => e.category === c).map((e) => (
@@ -72,20 +75,37 @@ export function ShiftForm({
           <Label htmlFor="date">Datum</Label>
           <Input id="date" name="date" type="date" defaultValue={v.date} required />
         </div>
-        <div>
-          <Label htmlFor="from">Starttid</Label>
-          <Input id="from" name="from" type="time" step={60} defaultValue={v.from} required />
-        </div>
-        <div>
-          <Label htmlFor="to">Sluttid</Label>
-          <Input id="to" name="to" type="time" step={60} defaultValue={v.to} required />
-        </div>
+        {openEnded ? (
+          <>
+            {/* Ignoreras av servern för bollplockare, men fälten krävs av formuläret. */}
+            <input type="hidden" name="from" value="11:00" />
+            <input type="hidden" name="to" value="15:00" />
+            <div className="sm:col-span-2">
+              <Notice tone="info" title="Bollplockare har ingen fast sluttid">
+                Passet utgår från rangens stängningstid och slutar när bollarna är plockade. Tidigaste incheckning sätts automatiskt (se Range &amp; GPS-inställningar).
+              </Notice>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label htmlFor="from">Starttid</Label>
+              <Input id="from" name="from" type="time" step={60} defaultValue={v.from} required />
+            </div>
+            <div>
+              <Label htmlFor="to">Sluttid</Label>
+              <Input id="to" name="to" type="time" step={60} defaultValue={v.to} required />
+            </div>
+          </>
+        )}
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="endsNextDay" defaultChecked={v.endsNextDay} className="size-4 rounded border-line accent-brand-700" />
-        Passet slutar nästa dag (nattpass)
-      </label>
+      {openEnded ? null : (
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="endsNextDay" defaultChecked={v.endsNextDay} className="size-4 rounded border-line accent-brand-700" />
+          Passet slutar nästa dag (nattpass)
+        </label>
+      )}
 
       <div>
         <Label htmlFor="notes">Notering (valfri)</Label>

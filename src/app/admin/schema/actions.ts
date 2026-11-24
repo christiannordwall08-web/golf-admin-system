@@ -221,7 +221,11 @@ export async function quickCreateShiftAction(input: { employeeId: string; date: 
       const first = result.issues[0]?.message ?? "Passet kunde inte skapas.";
       return { ok: false, message: result.needsConfirm ? `${first} Använd + i dagen om du ändå vill lägga till det.` : first };
     }
-    return { ok: true, message: `Passet ${DEFAULT_SHIFT_TIMES.from.replace(":", ".")}–${DEFAULT_SHIFT_TIMES.to.replace(":", ".")} lades till som utkast.` };
+    // Bollplockare har ingen fast tid: passet utgår från rangens stängningstid.
+    return {
+      ok: true,
+      message: result.category === "BOLLPLOCKARE" ? "Bollplockarpasset lades till som utkast (ingen fast sluttid)." : `Passet ${DEFAULT_SHIFT_TIMES.from.replace(":", ".")}–${DEFAULT_SHIFT_TIMES.to.replace(":", ".")} lades till som utkast.`,
+    };
   } catch (e) {
     if (e instanceof UnauthenticatedError) redirect("/login");
     if (e instanceof AppError) return { ok: false, message: e.message };

@@ -23,6 +23,8 @@ export type CalendarShift = {
   phase: ShiftPhase;
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
   publicationStatus?: "DRAFT" | "PUBLISHED";
+  /** Pass utan fast sluttid (bollplockare): visar "in från HH.mm" i stället för ett tidsintervall. */
+  openEnded?: boolean;
   /** Notering från schemat, t.ex. "öppnar". */
   note?: string | null;
 };
@@ -125,7 +127,7 @@ export function ScheduleCalendar({
                                   {s.employeeIsAdmin ? <span className="ml-1 text-[9px] font-medium tracking-wide uppercase opacity-70">admin</span> : null}
                                 </span>
                               ) : null}
-                              <span className="block tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
+                              <span className="block tabular-nums">{s.openEnded ? `in från ${formatTimeRange(s.startsAt, s.endsAt).split("–")[0]}` : formatTimeRange(s.startsAt, s.endsAt)}</span>
                               {s.note ? <span className="block text-[10px] font-medium italic">{s.note}</span> : null}
                               {s.publicationStatus === "DRAFT" ? <span className="block text-[9px] font-semibold tracking-wide uppercase opacity-70">utkast</span> : null}
                             </>
@@ -133,7 +135,7 @@ export function ScheduleCalendar({
                           return (
                             <li
                               key={s.id}
-                              title={`${s.employeeName ?? ""} ${formatTimeRange(s.startsAt, s.endsAt)}`.trim()}
+                              title={`${s.employeeName ?? ""} ${s.openEnded ? "in från " + formatTimeRange(s.startsAt, s.endsAt).split("–")[0] : formatTimeRange(s.startsAt, s.endsAt)}`.trim()}
                               className={cn(
                                 "rounded-md border text-[11px] leading-tight",
                                 CHIP[s.category],
@@ -178,8 +180,8 @@ export function ScheduleCalendar({
                     <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                       {s.employeeName ? <span className="font-medium">{s.employeeName}</span> : null}
                       {s.employeeIsAdmin ? <AdminTag /> : null}
-                      <span className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
-                      <span className="text-ink-muted">{formatDuration(s.minutes)}</span>
+                      <span className="tabular-nums">{s.openEnded ? `in från ${formatTimeRange(s.startsAt, s.endsAt).split("–")[0]} (ingen fast sluttid)` : formatTimeRange(s.startsAt, s.endsAt)}</span>
+                      {s.openEnded ? null : <span className="text-ink-muted">{formatDuration(s.minutes)}</span>}
                       {s.note ? <span className="rounded bg-stone-100 px-1.5 py-0.5 text-xs font-medium italic">{s.note}</span> : null}
                       {showCategory ? <CategoryBadge category={s.category} /> : null}
                       <span className="flex flex-wrap gap-1.5">
