@@ -118,6 +118,11 @@ export function formatTimeRange(start: Date, end: Date): string {
   return `${f(start)}–${f(end)}`;
 }
 
+/** "14.30" (svenskt format, i Stockholm-tid). */
+export function formatTime(instant: Date): string {
+  return DateTime.fromJSDate(instant, { zone: STOCKHOLM_TZ }).toFormat("HH.mm");
+}
+
 /** "lördag 28 november" (svenska, Stockholm). */
 export function formatDateLong(instant: Date): string {
   return DateTime.fromJSDate(instant, { zone: STOCKHOLM_TZ })

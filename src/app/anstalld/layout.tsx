@@ -3,6 +3,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { NAV_COMBINED } from "@/components/layout/nav-config";
 import { CATEGORY_HOME, CATEGORY_LABEL, COMBINED_HOME } from "@/domain/roles";
 import { requireCombinedEmployeeArea } from "@/server/auth/current-user";
+import { getDb } from "@/server/db";
+import { countMyUnread } from "@/server/services/notifications";
 
 /** Samlad vy för den som jobbar både i golfshopen och som bollplockare. */
 export default async function Layout({ children }: { children: ReactNode }) {
@@ -11,8 +13,10 @@ export default async function Layout({ children }: { children: ReactNode }) {
     ...session.user.employments.map((e) => ({ href: CATEGORY_HOME[e.category], label: CATEGORY_LABEL[e.category], current: false })),
     { href: COMBINED_HOME, label: "Båda", current: true },
   ];
+  const unread = await countMyUnread(getDb(), session.user.id);
   return (
     <AppShell
+      notifications={{ href: "/anstalld/notiser", unread }}
       user={{ displayName: session.user.displayName, roleLabel: "Anställd · Golfshop och Bollplockare" }}
       nav={NAV_COMBINED}
       previewCurrent="alla"

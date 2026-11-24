@@ -6,6 +6,7 @@ import { Brand } from "./brand";
 import { DevPreviewBar } from "./dev-preview-bar";
 import type { PreviewMode } from "@/server/dev-preview";
 import Link from "next/link";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileNav } from "./mobile-nav";
 import type { NavItem } from "./nav-config";
 import { NavLinks } from "./nav-links";
@@ -17,6 +18,7 @@ export function AppShell({
   nav,
   previewCurrent,
   areaLinks,
+  notifications,
   children,
 }: {
   user: { displayName: string; roleLabel: string };
@@ -25,6 +27,8 @@ export function AppShell({
   previewCurrent: PreviewMode;
   /** Andra arbetsplatser personen har (t.ex. Golfshop och Bollplockare). Visas bara om det finns fler än en. */
   areaLinks?: AreaLink[];
+  /** Klockan: sidan för mina notiser i den här panelen och antal olästa. */
+  notifications?: { href: string; unread: number };
   children: ReactNode;
 }) {
   const areaSwitch =
@@ -63,7 +67,10 @@ export function AppShell({
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <DevPreviewBar current={previewCurrent} />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-r border-line bg-white p-4 lg:flex">
-        <Brand className="px-1 pt-1" />
+        <div className="flex items-center justify-between gap-2">
+          <Brand className="px-1 pt-1" />
+          {notifications ? <NotificationBell {...notifications} /> : null}
+        </div>
         <div className="flex-1 overflow-y-auto">
           <NavLinks items={nav} />
         </div>
@@ -79,6 +86,7 @@ export function AppShell({
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-white/90 px-3 backdrop-blur lg:hidden">
           <MobileNav items={nav} extra={areaSwitch} />
           <Brand className="flex-1" />
+          {notifications ? <NotificationBell {...notifications} /> : null}
           {signOut}
         </header>
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
