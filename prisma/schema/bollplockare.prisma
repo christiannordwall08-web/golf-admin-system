@@ -13,3 +13,179 @@
 //
 // Relationer från gemensamma modeller kräver en inversa sida i den modellen; be om det via PR.
 // =============================================================================
+
+// =============================================================================
+// DRIVING RANGE, ARBETSOMRÅDE OCH GPS-BASERAD TIDSREGISTRERING
+// Bollplockarnas pass har ingen fast sluttid: arbetet utgår från rangens stängningstid och slutar när
+// bollarna är plockade. Tiden registreras av bollplockaren själv (klocka in/ut) och lagras i WorkTimeEntry
+// (source = GPS) som för all annan lönegrundande tid. Här ligger allt som är specifikt för Bollplockare.
+// Alla tidpunkter är serverns. Klientens klocka litas aldrig på. Se docs/BOLLPLOCKARE-GPS.md.
+// =============================================================================
+
+/// GPS-status för ett pågående pass. Skild från passets huvudsakliga tillstånd: utebliven GPS pausar aldrig passet.
+enum BollplockareGpsStatus {
+  NONE
+  /// Inom det godkända området.
+  INSIDE
+  /// Utanför gränsen men inom säkerhetsmarginalen. Tiden räknas som vanligt.
+  MARGIN
+  /// Utanför marginalen: avvikelsen verifieras (inget är pausat än).
+  VERIFYING
+  /// Bekräftat utanför: tiden är pausad.
+  OUTSIDE
+  /// Positionen är för osäker (dålig noggrannhet, hopp eller gammal mätning). Aldrig en avvikelse.
+  UNRELIABLE
+  /// Ingen position kunde hämtas (signal saknas).
+  MISSING
+  /// Platsåtkomst nekad i webbläsaren.
+  DENIED
+}
+
+enum GpsPauseEnd {
+  /// Personen återvände till området.
+  RETURNED
+  /// Personen klockade ut under pausen.
+  CLOCKED_OUT
+  /// Admin avslutade eller rättade pausen.
+  ADMIN
+}
+
+enum GpsEventType {
+  CLOCK_IN
+  CLOCK_OUT
+  PAUSE_STARTED
+  PAUSE_ENDED
+  GPS_UNRELIABLE
+  GPS_MISSING
+  GPS_DENIED
+  GPS_RESTORED
+  CLOCK_OUT_REMINDER
+  ADMIN_CORRECTION
+  PAUSE_VOIDED
+}
+
+/// Inställningar för driving range och GPS. Exakt EN rad (id = "default"), skapas vid första läsning.
+model BollplockareSettings {
+  id                      String   @id @default("default")
+  /// Rangens vanliga stängningstid, "HH:mm" (Stockholm-tid).
+  defaultCloseTime        String   @default("20:00")
+  /// Hur många minuter före stängning bollplockaren får klocka in.
+  checkInMarginMinutes    Int      @default(20)
+  /// Hur länge en avvikelse måste bestå (och bekräftas av flera mätningar) innan tiden pausas.
+  verificationSeconds     Int      @default(30)
+  /// Sämre noggrannhet än så (meter) räknas som osäker position och kan aldrig ge en avvikelse.
+  maxAccuracyMeters       Int      @default(50)
+  /// En position äldre än så (sekunder) räknas som gammal och visas aldrig som aktuell.
+  staleAfterSeconds       Int      @default(120)
+  /// Återupptagning kräver att personen är så här många meter innanför marginalgränsen (förhindrar fladder vid gränsen).
+  returnHysteresisMeters  Int      @default(10)
+  /// Positionsuppgifter (koordinater) raderas efter så här många dagar.
+  gpsRetentionDays        Int      @default(30)
+  /// Påminnelse om utcheckning efter så här många minuter i ett pågående pass.
+  clockOutReminderMinutes Int      @default(240)
+  /// Admin notifieras om ingen klockat in så här många minuter efter rangens stängningstid.
+  noShowAfterMinutes      Int      @default(30)
+  updatedById             String?
+  updatedAt               DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("BollplockareSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+}
+
+/// Avvikande stängningstid eller stängd dag för ett visst datum.
+model BollplockareDayOverride {
+  id          String   @id @default(cuid())
+  date        DateTime @unique @db.Date
+  /// "HH:mm". Null när dagen är stängd.
+  closeTime   String?
+  isClosed    Boolean  @default(false)
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  createdBy User @relation("BollplockareOverrideCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+}
+
+/// Godkänt geografiskt arbetsområde (polygoner) plus säkerhetsmarginal. EN rad (id = "default").
+model GpsWorkArea {
+  id           String   @id @default("default")
+  name         String   @default("Golfanläggningen")
+  /// Lista av ringar. Varje ring är en lista av [lat, lng]-par (minst 3). Flera ringar = flera delområden.
+  polygons     Json     @default("[]")
+  /// Extra marginal utanför yttergränsen, i meter.
+  marginMeters Int      @default(40)
+  version      Int      @default(1)
+  updatedById  String?
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("GpsWorkAreaUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+}
+
+/// Bollplockar-specifik del av en tidsregistrering (1:1 med WorkTimeEntry). Håller GPS-tillståndet och
+/// den ENDA senaste positionen. Ingen rörelsehistorik sparas, och koordinaterna rensas vid utcheckning.
+model BollplockareSession {
+  id                     String                @id @default(cuid())
+  entryId                String                @unique
+  gpsStatus              BollplockareGpsStatus @default(NONE)
+  gpsStatusAt            DateTime?             @db.Timestamptz(3)
+  /// Serverns mottagningstid för den senast ACCEPTERADE positionen.
+  lastPositionAt         DateTime?             @db.Timestamptz(3)
+  lastLat                Float?
+  lastLng                Float?
+  lastAccuracyM          Float?
+  /// Avstånd utanför områdets gräns i meter (0 = inom området).
+  lastDistanceM          Float?
+  /// När den pågående verifieringen (avvikelse eller återkomst) började.
+  trackSince             DateTime?             @db.Timestamptz(3)
+  trackSamples           Int                   @default(0)
+  /// Summerad paustid i hela minuter, sätts vid utcheckning.
+  pausedMinutes          Int                   @default(0)
+  needsReview            Boolean               @default(false)
+  reviewReasons          String[]
+  clockOutReminderSentAt DateTime?             @db.Timestamptz(3)
+  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
+
+  entry  WorkTimeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  pauses GpsPause[]
+  events GpsEvent[]
+}
+
+/// Paus i ett pass. Startar vid första bekräftade mätningen utanför området och slutar vid första bekräftade återkomsten.
+/// Admin kan rätta (ogiltigförklara) en paus med anledning; den raderas aldrig.
+model GpsPause {
+  id         String       @id @default(cuid())
+  sessionId  String
+  startedAt  DateTime     @db.Timestamptz(3)
+  endedAt    DateTime?    @db.Timestamptz(3)
+  endedBy    GpsPauseEnd?
+  /// Bekräftande position och avstånd (koordinater rensas efter lagringstiden).
+  distanceM  Float?
+  lat        Float?
+  lng        Float?
+  accuracyM  Float?
+  voidedAt   DateTime?    @db.Timestamptz(3)
+  voidedById String?
+  voidReason String?
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+
+  session  BollplockareSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  voidedBy User?               @relation("GpsPauseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, startedAt])
+}
+
+/// Passets historik (append-only). Innehåller aldrig koordinater, bara avstånd och noggrannhet.
+model GpsEvent {
+  id        String       @id @default(cuid())
+  sessionId String
+  type      GpsEventType
+  at        DateTime     @default(now()) @db.Timestamptz(3)
+  data      Json?
+  actorId   String?
+
+  session BollplockareSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  actor   User?               @relation("GpsEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, at])
+}

@@ -57,6 +57,9 @@ model Shift {
   approvalStatus     ApprovalStatus    @default(PENDING)
   workStatus         ShiftWorkStatus   @default(SCHEDULED)
   notes              String?
+  /// true = passet saknar fast sluttid (bollplockare): startsAt är tidigaste incheckning, endsAt är bara slutet på
+  /// arbetsdygnet (06.00 nästa morgon) och INTE en arbetad sluttid. Arbetstiden kommer från WorkTimeEntry.
+  openEnded          Boolean           @default(false)
   /// Optimistisk låsning: uppdatera med WHERE id AND version, öka version vid varje ändring.
   version            Int               @default(1)
   createdById        String
@@ -69,10 +72,12 @@ model Shift {
   originalEmployee Employee @relation("ShiftOriginalAssignee", fields: [originalEmployeeId], references: [id], onDelete: Restrict)
   createdBy        User     @relation("ShiftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
-  assignmentHistory ShiftAssignmentHistory[]
-  approvals         ShiftApproval[]
-  swapRequests      ShiftSwapRequest[]
-  workTimeEntry     WorkTimeEntry?
+  assignmentHistory   ShiftAssignmentHistory[]
+  approvals           ShiftApproval[]
+  swapRequests        ShiftSwapRequest[]
+  workTimeEntry       WorkTimeEntry?
+  /// Passbytesförfrågningar där detta pass är motpartens pass i ett dagsbyte.
+  swapCounterRequests ShiftSwapRequest[]       @relation("SwapCounterShift")
 
   @@index([assignedEmployeeId, startsAt])
   @@index([category, localDate])
@@ -124,6 +129,10 @@ model ShiftSwapRequest {
   requesterId           String
   /// Kollega som föreslås ta passet (null = bara ändringsförfrågan till Admin).
   proposedEmployeeId    String?
+  /// DIRECT = en utvald kollega, OPEN = öppen för alla i gruppen, EXCHANGE = byte av arbetsdag, CHANGE = bara Admin.
+  kind                  SwapKind          @default(DIRECT)
+  /// Vid EXCHANGE: kollegans pass som den som frågar tar över i gengäld.
+  counterShiftId        String?
   proposedStartsAt      DateTime?         @db.Timestamptz(3)
   proposedEndsAt        DateTime?         @db.Timestamptz(3)
   reason                String
@@ -139,6 +148,7 @@ model ShiftSwapRequest {
   shift            Shift     @relation(fields: [shiftId], references: [id], onDelete: Restrict)
   requester        Employee  @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Restrict)
   proposedEmployee Employee? @relation("SwapProposedColleague", fields: [proposedEmployeeId], references: [id], onDelete: Restrict)
+  counterShift     Shift?    @relation("SwapCounterShift", fields: [counterShiftId], references: [id], onDelete: Restrict)
   decidedBy        User?     @relation("SwapDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
 
   messages          ShiftSwapMessage[]

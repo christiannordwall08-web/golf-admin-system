@@ -8,24 +8,24 @@
 // =============================================================================
 
 model User {
-  id               String    @id @default(cuid())
+  id                    String    @id @default(cuid())
   /// Alltid gemener (CHECK-constraint i databasen).
-  email            String    @unique
+  email                 String    @unique
   /// Visningsnamn ENDAST för användare utan personalpost (t.ex. Admin). Personalens namn
   /// kommer alltid från Employee (personalregistret) – visa aldrig detta fält för dem.
-  name             String?
-  passwordHash     String
-  role             UserRole
-  isActive         Boolean   @default(true)
-  failedLoginCount Int       @default(0)
-  lockedUntil      DateTime? @db.Timestamptz(3)
-  lastLoginAt      DateTime? @db.Timestamptz(3)
+  name                  String?
+  passwordHash          String
+  role                  UserRole
+  isActive              Boolean   @default(true)
+  failedLoginCount      Int       @default(0)
+  lockedUntil           DateTime? @db.Timestamptz(3)
+  lastLoginAt           DateTime? @db.Timestamptz(3)
   /// Får notis (och ser bilden direkt) när personalen skickar in ett dagsavslut. Gäller administratörer.
-  receivesDailyClosings Boolean @default(false)
+  receivesDailyClosings Boolean   @default(false)
   /// Testdata är alltid markerad och skapas bara av prisma/seed-demo.ts i utvecklingsmiljö.
-  isTestData       Boolean   @default(false)
-  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  isTestData            Boolean   @default(false)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
 
   /// En person kan ha flera anställningar (en per arbetskategori), t.ex. både Golfshop och Bollplockare.
   employees     Employee[]
@@ -47,6 +47,13 @@ model User {
   payrollAdjustments      PayrollAdjustment[]
   dailyClosingReviews     DailyClosing[]           @relation("DailyClosingReviewedBy")
   dailyClosingAssignments DailyClosingAssignment[]
+
+  // Bollplockare (prisma/schema/bollplockare.prisma)
+  bollplockareSettingsUpdates BollplockareSettings[]    @relation("BollplockareSettingsUpdatedBy")
+  bollplockareOverrides       BollplockareDayOverride[] @relation("BollplockareOverrideCreatedBy")
+  gpsWorkAreaUpdates          GpsWorkArea[]             @relation("GpsWorkAreaUpdatedBy")
+  gpsPausesVoided             GpsPause[]                @relation("GpsPauseVoidedBy")
+  gpsEvents                   GpsEvent[]                @relation("GpsEventActor")
 }
 
 model Session {

@@ -64,8 +64,10 @@ model WorkTimeEntry {
   payRate    PayRate? @relation(fields: [payRateId], references: [id], onDelete: Restrict)
   approvedBy User?    @relation("WorkTimeApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
 
-  corrections WorkTimeCorrection[]
-  reportLine  PayrollReportLine?
+  corrections         WorkTimeCorrection[]
+  reportLine          PayrollReportLine?
+  /// Bollplockare: GPS-tillstånd, paus och historik (1:1).
+  bollplockareSession BollplockareSession?
 
   @@index([employeeId, workDate])
   @@index([workDate, category])
@@ -81,6 +83,8 @@ model WorkTimeCorrection {
   previousStatus          WorkTimeStatus
   newStatus               WorkTimeStatus
   reason                  String
+  /// Före/efter för övriga fält (incheckning, utcheckning, paus): { "fält": [före, efter] }.
+  detail                  Json?
   correctedById           String
   createdAt               DateTime       @default(now()) @db.Timestamptz(3)
 
