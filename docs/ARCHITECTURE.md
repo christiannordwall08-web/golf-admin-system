@@ -82,6 +82,10 @@ Databas                         prisma/**         Schema, migrationer, constrain
 
 ## Tid, datum och pengar
 
+- **Databasens tidszon spelar ingen roll, för klienten tvingar sessionen till UTC** (`createPrismaClient`). Prismas drivrutin skickar och läser tidsstämplar utan
+  tidszon, och Postgres tolkar dem i sessionens tidszon. Utan detta lagras alla tidpunkter fel (1 h på vintern, 2 h på sommaren) när databasens standardtidszon inte är UTC,
+  vilket också får triggers med `now()` att ge fel. Testdatabasen har därför medvetet standardtidszonen Europe/Stockholm, och `tests/db/time-storage.test.ts` mäter
+  lagrade tidpunkter med ren SQL. Skapa aldrig en `PrismaClient` på annat sätt än via `createPrismaClient`.
 - Presentation och all gruppering per dag/månad sker i **Europe/Stockholm**. Tidpunkter lagras som UTC (`timestamptz`).
 - Arbetsdagen för ett pass är Stockholm-datumet för starttiden (`Shift.localDate`). Ett pass som börjar 23.30 räknas på den dagen,
   även om det slutar efter midnatt. Timlön bestäms av arbetsdagen.

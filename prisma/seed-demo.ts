@@ -14,6 +14,7 @@ import { dateStringToDbDate, stockholmYearMonth } from "@/domain/time";
 import { hashPassword } from "@/server/auth/password";
 import { createPrismaClient } from "@/server/db-client";
 import { createDemoShifts } from "@/server/demo-data";
+import { assertLocalDevelopment } from "@/server/local-guard";
 import { changeHourlyRate } from "@/server/services/pay-rates";
 
 const PEOPLE: { firstName: string; lastName: string; category: WorkCategory; rateKr: number }[] = [
@@ -24,14 +25,6 @@ const PEOPLE: { firstName: string; lastName: string; category: WorkCategory; rat
   { firstName: "Emma", lastName: "Karlsson", category: "BOLLPLOCKARE", rateKr: 135 },
   { firstName: "Viktor", lastName: "Holm", category: "BOLLPLOCKARE", rateKr: 140 },
 ];
-
-function assertLocalDevelopment(url: string) {
-  if (process.env.NODE_ENV === "production") throw new Error("Testdata får inte skapas i production.");
-  const host = new URL(url).hostname;
-  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) {
-    throw new Error(`Vägrar skapa testdata mot icke-lokal databas (${host}).`);
-  }
-}
 
 async function main() {
   const url = process.env.DATABASE_URL;

@@ -60,6 +60,6 @@ describe("lägen och namn", () => {
 
   it("e-postbasen rensar diakritiska tecken och specialtecken", () => {
     expect(previewEmailBase("Åke", "Öberg")).toBe("ake.oberg");
-    expect(previewEmailBase("Anna-Lena", "Testsson")).toBe("annalena.testsson");
+    expect(previewEmailBase("Anna-Lena", "Berg")).toBe("annalena.berg");
   });
 });

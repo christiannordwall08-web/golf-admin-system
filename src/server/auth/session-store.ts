@@ -108,7 +108,7 @@ export async function validateSession(
       email: user.email,
       role: user.role,
       actingRole: actingRoleFor(session.context, categories),
-      displayName: registryPerson ? `${registryPerson.firstName} ${registryPerson.lastName}` : (user.name ?? user.email),
+      displayName: registryPerson ? `${registryPerson.firstName} ${registryPerson.lastName}`.trim() : (user.name ?? user.email),
       firstName: registryPerson ? registryPerson.firstName : (user.name?.split(" ")[0] ?? null),
       employments: user.employees.map((e) => ({ id: e.id, category: e.category })),
       primaryCategory: primaryCategory(user.role, categories),

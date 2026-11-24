@@ -1,8 +1,11 @@
 // Startar allt som behövs för att titta på appen lokalt UTAN inloggning:
-// lokal PostgreSQL, migrationer, testdata och utvecklingsservern i förhandsvisningsläge.
+// lokal PostgreSQL, migrationer, data och utvecklingsservern i förhandsvisningsläge.
+//  - Finns egna schemafiler i .local/*.json importeras de (riktiga personer/pass) och skendata hoppas över.
+//  - Annars läggs påhittad testdata in (npm run db:seed:demo).
 // Endast för utveckling. Kör: npm run preview   (Ctrl+C stoppar allt)
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 
 const DB_URL = "postgresql://golf:golf@localhost:5433/golf_admin";
 const env = { ...process.env, DATABASE_URL: DB_URL };
@@ -40,13 +43,19 @@ await new Promise((resolve, reject) => {
 console.log("2/4  Skapar tabeller ...");
 run("Migrering", "npx", ["prisma", "migrate", "deploy"], { CHECKPOINT_DISABLE: "1" });
 
-console.log("3/4  Lägger in testdata ...");
-// Lösenordet behövs inte i förhandsvisning (ingen inloggning), så ett slumpat kastas.
-run("Testdata", "npx", ["tsx", "prisma/seed-demo.ts"], { DEV_SEED_PASSWORD: randomBytes(12).toString("base64url") });
+const localFiles = existsSync(".local") ? readdirSync(".local").filter((f) => f.endsWith(".json")).sort() : [];
+if (localFiles.length > 0) {
+  console.log(`3/4  Importerar egen data (${localFiles.length} fil(er) i .local/) och hoppar över skendata ...`);
+  for (const f of localFiles) run(`Import av ${f}`, "npx", ["tsx", "prisma/import-schedule.ts", `.local/${f}`]);
+} else {
+  console.log("3/4  Lägger in påhittad testdata ...");
+  // Lösenordet behövs inte i förhandsvisning (ingen inloggning), så ett slumpat kastas.
+  run("Testdata", "npx", ["tsx", "prisma/seed-demo.ts"], { DEV_SEED_PASSWORD: randomBytes(12).toString("base64url") });
+}
 
 console.log("4/4  Startar appen i förhandsvisningsläge ...\n");
 app = spawn("npx", ["next", "dev"], {
-  env: { ...env, DEV_PREVIEW: "1" },
+  env: { ...env, DEV_PREVIEW: "1", PREVIEW_DEMO_DATA: localFiles.length > 0 ? "0" : "1" },
   stdio: "inherit",
   shell: process.platform === "win32",
 });

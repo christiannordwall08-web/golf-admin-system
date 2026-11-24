@@ -47,7 +47,7 @@ export default async function EmployeeProfilePage({
         <ArrowLeft className="size-4" aria-hidden /> Personal &amp; löner
       </Link>
       <PageHeader
-        title={`${p.firstName} ${p.lastName}`}
+        title={`${p.firstName} ${p.lastName}`.trim()}
         description={`${CATEGORY_LABEL[p.category]} · ${formatMonthYear(ym.year, ym.month)}`}
         actions={<MonthNav basePath={`/admin/personal/${p.employeeId}`} ym={ym} now={now} />}
       />

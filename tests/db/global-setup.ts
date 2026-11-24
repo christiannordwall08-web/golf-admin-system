@@ -30,6 +30,8 @@ export default async function setup() {
     port,
     persistent: false,
     initdbFlags: ["--encoding=UTF8"],
+    // Medvetet en annan tidszon än UTC: testerna ska bevisa att appen inte beror på databasens standardtidszon.
+    postgresFlags: ["-c", "timezone=Europe/Stockholm"],
     onLog: () => {},
     onError: () => {},
   });

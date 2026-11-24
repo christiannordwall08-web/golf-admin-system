@@ -29,6 +29,14 @@ export function isDevPreviewEnabled(env: Record<string, string | undefined> = pr
   }
 }
 
+/**
+ * Skendata (påhittade personer och pass) i förhandsvisningen. `npm run preview` stänger av det (PREVIEW_DEMO_DATA=0)
+ * när egen data finns i .local/, så att riktiga och påhittade personer aldrig blandas.
+ */
+export function isPreviewDemoData(env: Record<string, string | undefined> = process.env): boolean {
+  return env.PREVIEW_DEMO_DATA !== "0";
+}
+
 export type PreviewMode = "admin" | WorkCategoryMode;
 type WorkCategoryMode = Lowercase<WorkCategory>;
 

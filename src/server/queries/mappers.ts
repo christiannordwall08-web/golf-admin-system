@@ -41,7 +41,7 @@ export function toRatePeriods(
   }));
 }
 
-export const fullName = (p: { firstName: string; lastName: string }) => `${p.firstName} ${p.lastName}`;
+export const fullName = (p: { firstName: string; lastName: string }) => `${p.firstName} ${p.lastName}`.trim();
 
 const collator = new Intl.Collator("sv");
 export const compareNames = (a: { lastName: string; firstName: string }, b: { lastName: string; firstName: string }) =>

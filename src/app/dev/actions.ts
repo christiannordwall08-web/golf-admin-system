@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/server/db";
-import { PREVIEW_COOKIE, isDevPreviewEnabled } from "@/server/dev-preview";
+import { PREVIEW_COOKIE, isDevPreviewEnabled, isPreviewDemoData } from "@/server/dev-preview";
 import { createPreviewProfile } from "@/server/dev-preview-profile";
 import { startPreviewSession } from "@/server/dev-preview-session";
 import { ValidationError } from "@/server/errors";
@@ -23,7 +23,7 @@ export async function createPreviewProfileAction(_prev: CreateProfileState, form
 
   let userId: string;
   try {
-    ({ userId } = await createPreviewProfile(getDb(), { firstName, lastName }));
+    ({ userId } = await createPreviewProfile(getDb(), { firstName, lastName, demoData: isPreviewDemoData() }));
   } catch (e) {
     if (e instanceof ValidationError) return { error: e.message, firstName, lastName };
     throw e;

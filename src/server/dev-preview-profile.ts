@@ -28,6 +28,13 @@ export function previewEmailBase(firstName: string, lastName: string): string {
   return `${slug(firstName) || "person"}.${slug(lastName) || "test"}`;
 }
 
+export type PreviewProfileResult = {
+  userId: string;
+  name: string;
+  /** Vilka anställningar som var en redan befintlig (importerad) anställning som kontot tog över. */
+  adopted: { golfshop: boolean; bollplockare: boolean };
+};
+
 /**
  * Skapar förhandsvisningens testprofil från bara för- och efternamn: ETT konto som är administratör OCH
  * anställd i både Golfshop och Bollplockare (med timlön och testschema), så att man kan prova
@@ -35,8 +42,9 @@ export function previewEmailBase(firstName: string, lastName: string): string {
  */
 export async function createPreviewProfile(
   db: PrismaClient,
-  input: { firstName: string; lastName: string; now?: Date },
-): Promise<{ userId: string; name: string }> {
+  input: { firstName: string; lastName: string; now?: Date; demoData?: boolean },
+): Promise<PreviewProfileResult> {
+  const demoData = input.demoData ?? true;
   const firstName = normalizePersonName(input.firstName);
   const lastName = normalizePersonName(input.lastName);
   if (!firstName || !lastName) throw new ValidationError("Ange förnamn och efternamn (bara bokstäver).");
@@ -58,24 +66,47 @@ export async function createPreviewProfile(
   const { user, golfshop, bollplockare } = await db.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { email, name, passwordHash, role: "ADMIN", isTestData: true } });
     const person = { firstName, lastName, userId: user.id, isTestData: true, employmentStartDate: startDate, showEarningsToEmployee: true };
-    const golfshop = await tx.employee.create({ data: { ...person, category: "GOLFSHOP" } });
-    const bollplockare = await tx.employee.create({ data: { ...person, category: "BOLLPLOCKARE" } });
+
+    // Har det redan importerats en anställning med samma förnamn men utan efternamn (t.ex. från ett utskrivet
+    // schema) tar kontot över den i stället för att skapa en dubblett. Dess pass och timlön behålls.
+    const employment = async (category: "GOLFSHOP" | "BOLLPLOCKARE") => {
+      const existing = await tx.employee.findFirst({
+        where: { category, userId: null, lastName: "", firstName: { equals: firstName, mode: "insensitive" } },
+      });
+      if (existing) {
+        const employee = await tx.employee.update({
+          where: { id: existing.id },
+          data: { userId: user.id, lastName, showEarningsToEmployee: true },
+        });
+        return { employee, adopted: true };
+      }
+      return { employee: await tx.employee.create({ data: { ...person, category } }), adopted: false };
+    };
+    const golfshop = await employment("GOLFSHOP");
+    const bollplockare = await employment("BOLLPLOCKARE");
     await writeAudit(tx, {
       actorId: null,
       action: "DEV_PREVIEW_PROFILE_CREATED",
       entityType: "User",
       entityId: user.id,
-      metadata: { note: "lokal förhandsvisning, testdata" },
+      metadata: { note: "lokal förhandsvisning, testdata", adopted: [golfshop.adopted, bollplockare.adopted] },
     });
     return { user, golfshop, bollplockare };
   });
 
-  const actor = { id: user.id, role: "ADMIN" as const };
-  const effectiveFrom = `${year}-01-01`;
-  await changeHourlyRate(db, actor, { employeeId: golfshop.id, hourlyRateOre: 15000, effectiveFrom, reason: "Testdata" });
-  await changeHourlyRate(db, actor, { employeeId: bollplockare.id, hourlyRateOre: 14000, effectiveFrom, reason: "Testdata" });
-  await createDemoShifts(db, { employeeId: golfshop.id, category: "GOLFSHOP", createdById: user.id, index: 0, now });
-  await createDemoShifts(db, { employeeId: bollplockare.id, category: "BOLLPLOCKARE", createdById: user.id, index: 1, now });
+  // Skendata (timlön och testpass) bara för nyskapade anställningar och bara om skendata är på.
+  if (demoData) {
+    const actor = { id: user.id, role: "ADMIN" as const };
+    const effectiveFrom = `${year}-01-01`;
+    if (!golfshop.adopted) {
+      await changeHourlyRate(db, actor, { employeeId: golfshop.employee.id, hourlyRateOre: 15000, effectiveFrom, reason: "Testdata" });
+      await createDemoShifts(db, { employeeId: golfshop.employee.id, category: "GOLFSHOP", createdById: user.id, index: 0, now });
+    }
+    if (!bollplockare.adopted) {
+      await changeHourlyRate(db, actor, { employeeId: bollplockare.employee.id, hourlyRateOre: 14000, effectiveFrom, reason: "Testdata" });
+      await createDemoShifts(db, { employeeId: bollplockare.employee.id, category: "BOLLPLOCKARE", createdById: user.id, index: 1, now });
+    }
+  }
 
-  return { userId: user.id, name };
+  return { userId: user.id, name, adopted: { golfshop: golfshop.adopted, bollplockare: bollplockare.adopted } };
 }

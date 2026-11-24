@@ -17,6 +17,7 @@ const pg = new EmbeddedPostgres({
   port: PORT,
   persistent: true,
   initdbFlags: ["--encoding=UTF8"],
+  postgresFlags: ["-c", "timezone=UTC"],
   onLog: () => {},
   onError: (e) => console.error(String(e)),
 });

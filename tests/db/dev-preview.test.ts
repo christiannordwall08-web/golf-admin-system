@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { findPreviewProfile } from "@/server/dev-preview";
 import { createPreviewProfile } from "@/server/dev-preview-profile";
 import { ValidationError } from "@/server/errors";
+import { importSchedule } from "@/server/schedule-import";
 import { resetDb, testDb, testPasswordHash } from "./helpers";
 
 const db = testDb();
@@ -13,15 +14,15 @@ beforeEach(async () => {
 
 describe("createPreviewProfile – ett konto med bara för- och efternamn", () => {
   it("skapar EN användare som är admin och anställd i både Golfshop och Bollplockare, allt som testdata", async () => {
-    const { userId, name } = await createPreviewProfile(db, { firstName: "Kalle", lastName: "Testsson", now: NOW });
-    expect(name).toBe("Kalle Testsson");
+    const { userId, name } = await createPreviewProfile(db, { firstName: "Maja", lastName: "Exempel", now: NOW });
+    expect(name).toBe("Maja Exempel");
 
     const user = await db.user.findUniqueOrThrow({ where: { id: userId }, include: { employees: { include: { payRates: true } } } });
     expect(user.role).toBe("ADMIN");
     expect(user.isTestData).toBe(true);
-    expect(user.email).toBe("kalle.testsson@demo.test");
+    expect(user.email).toBe("maja.exempel@demo.test");
     expect(user.employees.map((e) => e.category).sort()).toEqual(["BOLLPLOCKARE", "GOLFSHOP"]);
-    expect(user.employees.every((e) => e.isTestData && e.firstName === "Kalle" && e.lastName === "Testsson")).toBe(true);
+    expect(user.employees.every((e) => e.isTestData && e.firstName === "Maja" && e.lastName === "Exempel")).toBe(true);
 
     const rate = (c: string) => user.employees.find((e) => e.category === c)!.payRates[0].hourlyRateOre;
     expect(rate("GOLFSHOP")).toBe(15_000);
@@ -51,6 +52,48 @@ describe("createPreviewProfile – ett konto med bara för- och efternamn", () =
     await expect(createPreviewProfile(db, { firstName: "", lastName: "Test", now: NOW })).rejects.toBeInstanceOf(ValidationError);
     await expect(createPreviewProfile(db, { firstName: "Anna<b>", lastName: "Test", now: NOW })).rejects.toBeInstanceOf(ValidationError);
     expect(await db.user.count()).toBe(0);
+  });
+});
+
+describe("createPreviewProfile med egen (importerad) data", () => {
+  const imported = {
+    category: "GOLFSHOP" as const,
+    employees: [{ firstName: "Anna", hourlyRateKr: 150, rateFrom: "2026-01-01" }],
+    shifts: [
+      { employee: "Anna", date: "2026-11-01", from: "11:00", to: "15:00" },
+      { employee: "Anna", date: "2026-11-21", from: "11:00", to: "15:00" },
+    ],
+  };
+
+  it("tar över en importerad anställning med samma förnamn i stället för att skapa en dubblett (behåller pass och lön)", async () => {
+    await importSchedule(db, imported);
+    const before = await db.employee.findFirstOrThrow({ where: { firstName: "Anna" }, include: { payRates: true } });
+
+    const { userId, adopted } = await createPreviewProfile(db, { firstName: "anna", lastName: "Testsson", now: NOW, demoData: false });
+    expect(adopted).toEqual({ golfshop: true, bollplockare: false });
+
+    const all = await db.employee.findMany({ where: { category: "GOLFSHOP" } });
+    expect(all).toHaveLength(1); // ingen dubblett
+    const after = await db.employee.findUniqueOrThrow({ where: { id: before.id }, include: { payRates: true } });
+    expect([after.userId, after.firstName, after.lastName]).toEqual([userId, "Anna", "Testsson"]); // förnamnets stavning behålls
+    expect(after.payRates.map((p) => p.hourlyRateOre)).toEqual([15_000]);
+    expect(await db.shift.count({ where: { assignedEmployeeId: before.id } })).toBe(2);
+    expect(await db.shift.count()).toBe(2); // inga skenpass tillkom
+  });
+
+  it("utan skendata får nya anställningar varken påhittade pass eller påhittad lön", async () => {
+    const { userId } = await createPreviewProfile(db, { firstName: "Ny", lastName: "Person", now: NOW, demoData: false });
+    const employees = await db.employee.findMany({ where: { userId }, include: { payRates: true } });
+    expect(employees.map((e) => e.category).sort()).toEqual(["BOLLPLOCKARE", "GOLFSHOP"]);
+    expect(employees.every((e) => e.payRates.length === 0)).toBe(true);
+    expect(await db.shift.count()).toBe(0);
+  });
+
+  it("tar inte över en anställning som redan har efternamn eller redan har ett konto", async () => {
+    await db.employee.create({ data: { firstName: "Ny", lastName: "Annan", category: "GOLFSHOP", isTestData: true } });
+    const { adopted } = await createPreviewProfile(db, { firstName: "Ny", lastName: "Person", now: NOW, demoData: false });
+    expect(adopted.golfshop).toBe(false);
+    expect(await db.employee.count({ where: { category: "GOLFSHOP" } })).toBe(2);
   });
 });
 

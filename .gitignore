@@ -165,3 +165,5 @@ next-env.d.ts
 /.pgdata/
 # Lokal lagring av uppladdade filer i utveckling (Etapp 5)
 /.storage/
+# Egen, riktig schema-/personaldata för lokal förhandsvisning. Ska ALDRIG committas (repot är publikt).
+/.local/

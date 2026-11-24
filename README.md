@@ -62,6 +62,25 @@ Förhandsvisningen går att slå på **bara** när alla villkor gäller: `DEV_PR
 I ett produktionsbygge ger `/dev` alltid 404, även om `DEV_PREVIEW=1` sätts av misstag (testat). Den skapar en vanlig session med rätt
 inloggningstyp, så alla roll- och behörighetskontroller gäller som vanligt.
 
+## Egen schema- och personaldata (utanför git)
+
+Vill du se **riktiga** personer och pass i stället för påhittade? Lägg en JSON-fil i `.local/` (mappen ignoreras av git, och **repot är publikt**, så
+riktiga namn och scheman ska aldrig committas):
+
+```json
+{
+  "category": "GOLFSHOP",
+  "approvalStatus": "APPROVED",
+  "employees": [{ "firstName": "Anna", "hourlyRateKr": 150, "rateFrom": "2026-01-01" }],
+  "shifts": [{ "employee": "Anna", "date": "2026-11-01", "from": "11:00", "to": "15:00" }]
+}
+```
+
+- `npm run db:import -- .local/min-fil.json` läser in den i den lokala databasen. Importen är idempotent (inget dubbleras) och vägrar köra i production eller mot en
+  icke-lokal databas. Är en timlön fel (en enda lönepost) rättas den när du kör om med ny `hourlyRateKr`. Efternamn är valfritt.
+- `npm run preview` importerar alla `.local/*.json` och **hoppar då över påhittad testdata**, så riktiga och påhittade personer aldrig blandas.
+- Skapar du ett förhandsvisningskonto med samma förnamn som en importerad anställning utan efternamn tar kontot över den anställningen (med dess pass och lön).
+
 ## Kommandon
 
 | Kommando | Vad det gör |
@@ -73,6 +92,7 @@ inloggningstyp, så alla roll- och behörighetskontroller gäller som vanligt.
 | `npm run test:watch` | Testerna i bevakningsläge |
 | `npm run db:migrate` | Skapa och applicera en ny migration efter schemaändring (utveckling) |
 | `npm run db:deploy` | Applicera befintliga migrationer (utveckling och produktion) |
+| `npm run db:import -- <fil>` | Importera schema/personal från en JSON-fil i `.local/` (lokalt, se ovan) |
 | `npm run db:generate` | Generera Prisma-klienten (körs även vid `npm install`) |
 
 ## Teknik

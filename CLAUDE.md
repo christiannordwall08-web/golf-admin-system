@@ -23,9 +23,11 @@ som delas (databasschema, `src/domain`, `src/server`, `src/components/ui`).
 9. **Ändra aldrig en migration som redan finns i `main`.** Skapa en ny. Tabeller/kolumner raderas inte, de utgår.
 10. **En session har en inloggningstyp** (`ADMIN` eller `EMPLOYEE`). Använd `session.user.actingRole` (sessionens roll) för behörigheter, aldrig `session.user.role`
     (kontots åtkomstnivå). Personal-läsfrågor tar `userId` från sessionen och avgränsar själva (`src/server/queries/self.ts`).
-11. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
+11. **Tid i databasen:** skapa `PrismaClient` bara via `createPrismaClient()` (tvingar UTC-session). Annars lagras tidpunkter fel om databasens tidszon inte är UTC.
+12. **Ingen riktig personal- eller schemadata i git** (repot är publikt). Egen data ligger i `.local/` (ignoreras) och importeras med `npm run db:import`.
+13. **Förhandsvisningsläget** (`DEV_PREVIEW`, `src/server/dev-preview.ts`, `/dev/**`) får aldrig utökas så att det kan nå riktiga användare eller köras utanför lokal utveckling.
     Lägg aldrig `DEV_PREVIEW` i `.env`. Rör inte spärrarna utan att uppdatera `tests/unit/dev-preview.test.ts`.
-12. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
+14. Påstå inte att något fungerar förrän det är testat. Kör `npm run typecheck && npm run lint && npm test` innan du säger "klart".
 
 ## Next.js 16 är inte den Next.js du känner till
 
