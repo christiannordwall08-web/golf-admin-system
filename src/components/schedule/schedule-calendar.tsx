@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { type YearMonth, WEEKDAYS_SHORT, buildMonthGrid } from "@/domain/calendar";
 import { CATEGORY_LABEL, type WorkCategory } from "@/domain/roles";
 import { formatDateLong, formatTimeRange, localToInstant } from "@/domain/time";
@@ -46,12 +47,18 @@ export function ScheduleCalendar({
   shifts,
   showCategory = false,
   emptyText = "Inga pass den här månaden.",
+  shiftHref,
+  newShiftHref,
 }: {
   ym: YearMonth;
   now: Date;
   shifts: CalendarShift[];
   showCategory?: boolean;
   emptyText?: string;
+  /** Gör varje pass till en länk (Admin: ändra pass). */
+  shiftHref?: (shiftId: string) => string;
+  /** Visar en "+"-länk i varje dag (Admin: nytt pass den dagen). */
+  newShiftHref?: (date: string) => string;
 }) {
   const byDate = group(shifts);
   const weeks = buildMonthGrid(ym, now);
@@ -81,7 +88,19 @@ export function ScheduleCalendar({
                     day.isWeekend && day.inMonth && "bg-stone-50/30",
                   )}
                 >
-                  <div className="mb-1 flex justify-end">
+                  <div className="mb-1 flex items-center justify-between">
+                    {newShiftHref && day.inMonth ? (
+                      <Link
+                        href={newShiftHref(day.date)}
+                        aria-label={`Nytt pass ${day.date}`}
+                        title="Nytt pass"
+                        className="flex size-6 items-center justify-center rounded-full text-base leading-none text-ink-muted/60 hover:bg-brand-100 hover:text-brand-800"
+                      >
+                        +
+                      </Link>
+                    ) : (
+                      <span />
+                    )}
                     <span
                       className={cn(
                         "flex size-6 items-center justify-center rounded-full text-xs",
@@ -93,27 +112,42 @@ export function ScheduleCalendar({
                   </div>
                   <ul className="flex flex-col gap-1">
                     {day.inMonth
-                      ? dayShifts.map((s) => (
-                          <li
-                            key={s.id}
-                            title={`${s.employeeName ?? ""} ${formatTimeRange(s.startsAt, s.endsAt)}`.trim()}
-                            className={cn(
-                              "rounded-md border px-1.5 py-1 text-[11px] leading-tight",
-                              CHIP[s.category],
-                              (s.phase === "CANCELLED" || s.phase === "ABSENT") && "line-through opacity-60",
-                              s.phase === "COMPLETED" && "opacity-75",
-                            )}
-                          >
-                            {s.employeeName ? (
-                              <span className="block truncate font-semibold">
-                                {s.employeeName}
-                                {s.employeeIsAdmin ? <span className="ml-1 text-[9px] font-medium tracking-wide uppercase opacity-70">admin</span> : null}
-                              </span>
-                            ) : null}
-                            <span className="block tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
-                            {s.note ? <span className="block text-[10px] font-medium italic">{s.note}</span> : null}
-                          </li>
-                        ))
+                      ? dayShifts.map((s) => {
+                          const inner = (
+                            <>
+                              {s.employeeName ? (
+                                <span className="block truncate font-semibold">
+                                  {s.employeeName}
+                                  {s.employeeIsAdmin ? <span className="ml-1 text-[9px] font-medium tracking-wide uppercase opacity-70">admin</span> : null}
+                                </span>
+                              ) : null}
+                              <span className="block tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
+                              {s.note ? <span className="block text-[10px] font-medium italic">{s.note}</span> : null}
+                              {s.publicationStatus === "DRAFT" ? <span className="block text-[9px] font-semibold tracking-wide uppercase opacity-70">utkast</span> : null}
+                            </>
+                          );
+                          return (
+                            <li
+                              key={s.id}
+                              title={`${s.employeeName ?? ""} ${formatTimeRange(s.startsAt, s.endsAt)}`.trim()}
+                              className={cn(
+                                "rounded-md border text-[11px] leading-tight",
+                                CHIP[s.category],
+                                s.publicationStatus === "DRAFT" && "border-dashed",
+                                (s.phase === "CANCELLED" || s.phase === "ABSENT") && "line-through opacity-60",
+                                s.phase === "COMPLETED" && "opacity-75",
+                              )}
+                            >
+                              {shiftHref ? (
+                                <Link href={shiftHref(s.id)} className="block rounded-md px-1.5 py-1 hover:bg-white/50">
+                                  {inner}
+                                </Link>
+                              ) : (
+                                <div className="px-1.5 py-1">{inner}</div>
+                              )}
+                            </li>
+                          );
+                        })
                       : null}
                   </ul>
                 </div>
@@ -151,6 +185,11 @@ export function ScheduleCalendar({
                       </span>
                       {s.originalEmployeeName ? (
                         <span className="text-xs text-ink-muted">Ursprungligen {s.originalEmployeeName}</span>
+                      ) : null}
+                      {shiftHref ? (
+                        <Link href={shiftHref(s.id)} className="ml-auto text-sm font-medium text-brand-700 hover:underline">
+                          Ändra
+                        </Link>
                       ) : null}
                     </li>
                   ))}

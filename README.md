@@ -5,8 +5,8 @@ En gemensam webbapplikation för tre roller: **Admin**, **Golfshop** och **Bollp
 
 > **Status:** Etapp 1 (grundstruktur) är klar och Admin har fått sina första riktiga sidor. Det finns **två separata inloggningar**
 > (Admin och Anställd), en adminöversikt, personal med löner och timmar, och hela scheman för Golfshop och Bollplockare (visning).
-> Anställd ser sin egen start, sitt schema och sina timmar. Att skapa/ändra pass, passbyten, godkänd arbetstid, rapporter och dagsavslut
-> byggs i kommande etapper. Se [Etapper och status](#etapper-och-status).
+> Anställd ser sin egen start, sitt schema och sina timmar. **Admin kan skapa, ändra, ställa in, återställa och publicera pass** (`/admin/schema`).
+> Passbyten, godkännande av pass, godkänd arbetstid, rapporter och dagsavslut byggs i kommande etapper. Se [Etapper och status](#etapper-och-status).
 
 ## Två inloggningar
 
@@ -132,7 +132,7 @@ docs/                 Arkitektur, datamodell, API-kontrakt, samarbetsregler, Bol
 | Etapp | Innehåll | Status |
 |---|---|---|
 | 1 | Grundstruktur, databas, roller, inloggning, designsystem, dokumentation | **Klar** |
-| 2 | Admin: dashboard, personalregister, profiler, scheman, publicering | **Delvis:** dashboard, personal & löner, profil och schema (visning) klara. Skapa/ändra/publicera pass, personhantering och lösenord återstår |
+| 2 | Admin: dashboard, personalregister, profiler, scheman, publicering | **Delvis:** dashboard, personal & löner, profil och schema (visning) klara. Skapa, ändra, ställ in/återställ och publicera pass klart. Kopiera vecka/månad, personhantering, lösenord och notiser återstår |
 | 3 | Golfshop: startsida, schema, godkännande, passbyten | **Delvis:** start, mitt schema och mina timmar klara. Godkänna pass och passbyten återstår |
 | 4 | Automatisk tidsregistrering, timlön, månadsrapporter, export | Ej påbörjad |
 | 5 | Dagsavslut (bilduppladdning, lagring, notiser) | Ej påbörjad |

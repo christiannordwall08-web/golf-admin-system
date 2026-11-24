@@ -118,3 +118,19 @@ describe("formatering (svenska)", () => {
     expect(formatMonthYear(2026, 11)).toBe("november 2026");
   });
 });
+
+describe("addDaysToDateString och localTimeOf", () => {
+  it("lägger till dagar över månads- och årsskiften", async () => {
+    const { addDaysToDateString } = await import("@/domain/time");
+    expect(addDaysToDateString("2026-11-30", 1)).toBe("2026-12-01");
+    expect(addDaysToDateString("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDaysToDateString("2026-03-01", -1)).toBe("2026-02-28");
+    expect(() => addDaysToDateString("2026-02-30", 1)).toThrow(RangeError);
+  });
+
+  it("localTimeOf ger svensk tid (vinter UTC+1, sommar UTC+2)", async () => {
+    const { localTimeOf } = await import("@/domain/time");
+    expect(localTimeOf(new Date("2026-11-28T10:00:00Z"))).toBe("11:00");
+    expect(localTimeOf(new Date("2026-07-01T09:00:00Z"))).toBe("11:00");
+  });
+});

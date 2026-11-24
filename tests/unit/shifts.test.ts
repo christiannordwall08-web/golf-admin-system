@@ -154,3 +154,36 @@ describe("Test 12: framtida pass är aldrig genomförda", () => {
     expect(hasShiftEnded(shift, at("2026-11-29", "09:00"))).toBe(true);
   });
 });
+
+describe("buildShiftInterval (formulär -> tidpunkter)", () => {
+  it("vanligt pass: 28 nov 11.00–15.00 svensk tid", async () => {
+    const { buildShiftInterval } = await import("@/domain/shifts");
+    const r = buildShiftInterval({ date: "2026-11-28", from: "11:00", to: "15:00" });
+    expect(r.ok && [r.startsAt.toISOString(), r.endsAt.toISOString()]).toEqual(["2026-11-28T10:00:00.000Z", "2026-11-28T14:00:00.000Z"]);
+  });
+
+  it("slutar nästa dag bara när det anges: nattpass över vintertidsbytet = 9 h", async () => {
+    const { buildShiftInterval } = await import("@/domain/shifts");
+    const r = buildShiftInterval({ date: "2026-10-24", from: "22:00", to: "06:00", endsNextDay: true });
+    expect(r.ok && (r.endsAt.getTime() - r.startsAt.getTime()) / 60_000).toBe(540);
+  });
+
+  it("ett skrivfel (slut före start utan 'nästa dag') avvisas i stället för att bli ett dygnslångt pass", async () => {
+    const { buildShiftInterval } = await import("@/domain/shifts");
+    const r = buildShiftInterval({ date: "2026-11-28", from: "15:00", to: "11:00" });
+    expect(r).toMatchObject({ ok: false, issue: { code: "INVALID_TIMES" } });
+    const tooLong = buildShiftInterval({ date: "2026-11-28", from: "15:00", to: "11:00", endsNextDay: true }); // 20 h
+    expect(tooLong).toMatchObject({ ok: false, issue: { code: "INVALID_TIMES" } });
+  });
+
+  it("avvisar ogiltigt datum/klockslag och klockslag som inte finns (sommartidsbyte)", async () => {
+    const { buildShiftInterval } = await import("@/domain/shifts");
+    for (const bad of [
+      { date: "2026-02-30", from: "10:00", to: "12:00" },
+      { date: "2026-11-28", from: "25:00", to: "12:00" },
+      { date: "2026-03-29", from: "02:30", to: "04:00" },
+    ]) {
+      expect(buildShiftInterval(bad)).toMatchObject({ ok: false });
+    }
+  });
+});

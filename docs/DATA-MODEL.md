@@ -109,6 +109,8 @@ anställd inte schemaläggs, och om ett godkänt pass ändras ska nytt godkänna
 ## Arbetsflöden (design, byggs i Etapp 2–4)
 
 ### Publicera ett månadsschema
+*Status: steg 1, 2 och 4 (utan notiser) är implementerade i `src/server/services/shifts.ts` och testade (`tests/db/shifts-service.test.ts`). Steg 3 (anställdas godkännande) och notiser återstår.*
+
 1. Admin skapar `Schedule` (kategori + månad) och `Shift`-rader som `DRAFT`. Varje ändring körs genom `analyzeShift()` och databasen.
 2. Admin förhandsgranskar och klickar *Publicera*. I en transaktion: pass `PUBLISHED`, `Schedule` `PUBLISHED`, en `SchedulePublication`,
    en `Notification` per berörd anställd, en revisionsrad. Inget publiceras automatiskt.

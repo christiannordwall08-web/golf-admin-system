@@ -1,5 +1,5 @@
 import type { WorkCategory } from "./roles";
-import { isWholeMinute, minutesBetween } from "./time";
+import { InvalidLocalTimeError, addDaysToDateString, isWholeMinute, localToInstant, minutesBetween } from "./time";
 
 /** Längsta tillåtna pass. Längre pass är nästan säkert ett inmatningsfel. */
 export const MAX_SHIFT_MINUTES = 16 * 60;
@@ -17,7 +17,13 @@ export type ShiftIssueCode =
   | "EMPLOYEE_INACTIVE"
   | "CATEGORY_MISMATCH"
   | "OVERLAP"
-  | "APPROVED_SHIFT_CHANGED";
+  | "APPROVED_SHIFT_CHANGED"
+  /** Passet har redan tagit slut (ändringen påverkar genomförda timmar). Varning. */
+  | "ALREADY_ENDED"
+  /** Passet har en tidsregistrering och kan inte ändras här. Fel. */
+  | "HAS_TIME_ENTRY"
+  /** Passet är inställt. Fel. */
+  | "SHIFT_CANCELLED";
 
 export type ShiftIssue = {
   code: ShiftIssueCode;
@@ -72,6 +78,30 @@ export function isApproved(status: ApprovalStatusLike): boolean {
 /** Ett pass är genomfört först när sluttiden passerats. Framtida pass är aldrig genomförda. */
 export function hasShiftEnded(shift: Pick<ShiftInterval, "endsAt">, now: Date): boolean {
   return shift.endsAt.getTime() <= now.getTime();
+}
+
+/**
+ * Gör ett formulärs datum + klockslag (Stockholm-tid) till tidpunkter. Slutar passet nästa dag anges det uttryckligen
+ * (`endsNextDay`), så att ett skrivfel som 15.00 → 11.00 aldrig tyst blir ett dygnslångt pass.
+ */
+export function buildShiftInterval(input: {
+  date: string;
+  from: string;
+  to: string;
+  endsNextDay?: boolean;
+}): { ok: true; startsAt: Date; endsAt: Date } | { ok: false; issue: ShiftIssue } {
+  try {
+    const startsAt = localToInstant(input.date, input.from);
+    const endsAt = localToInstant(input.endsNextDay ? addDaysToDateString(input.date, 1) : input.date, input.to);
+    const issue = validateShiftTimes({ startsAt, endsAt });
+    return issue ? { ok: false, issue } : { ok: true, startsAt, endsAt };
+  } catch (e) {
+    const message =
+      e instanceof InvalidLocalTimeError
+        ? "Klockslaget finns inte (sommartidsbyte). Välj en annan tid."
+        : "Datum eller klockslag är ogiltigt.";
+    return { ok: false, issue: { code: "INVALID_TIMES", severity: "error", message } };
+  }
 }
 
 export function validateShiftTimes(interval: ShiftInterval): ShiftIssue | null {

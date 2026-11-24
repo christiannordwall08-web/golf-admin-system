@@ -76,8 +76,14 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 | `getScheduleMonth(db, actor, { year, month, category? })` (hela schemat, namn vid varje pass) | `schedule:read:all` | **Finns, testad** |
 | `getMyMonth(db, actor, { userId, employeeId, year, month })` (anställds egna publicerade pass och timmar, avgränsas på `userId`) | `shift:read:own` | **Finns, testad** |
 | `createEmployee / updateEmployee / deactivateEmployee` | `employees:write` | Planerad, Etapp 2 |
-| `createShift / updateShift / cancelShift / copyWeek / copyMonth` (kör `analyzeShift`) | `schedule:write` | Planerad, Etapp 2 |
-| `publishSchedule(scheduleId)` | `schedule:publish` | Planerad, Etapp 2 |
+| `createShift(db, actor, { employeeId, date, from, to, endsNextDay?, notes?, publish?, confirmWarnings? })` | `schedule:write` (+ `schedule:publish` vid `publish`) | **Finns, testad** |
+| `updateShift(db, actor, shiftId, { …samma fält, expectedVersion, confirmWarnings? })` (person, tid, notering; ändring av godkänt pass ⇒ nytt godkännande efter bekräftelse; person-byte loggas i `ShiftAssignmentHistory`) | `schedule:write` | **Finns, testad** |
+| `cancelShift` / `restoreShift(db, actor, shiftId, { expectedVersion, confirmWarnings? })` (pass raderas aldrig, de ställs in) | `schedule:write` | **Finns, testade** |
+| `publishShifts(db, actor, { category, year, month })` (utkast ⇒ publicerat, `SchedulePublication`, revisionslogg) | `schedule:publish` | **Finns, testad** (notiser till personal återstår) |
+| `getShiftForEdit`, `listSchedulableEmployees` | `schedule:read:all` / `schedule:write` | **Finns** |
+| `copyWeek / copyMonth` (kopiera pass) | `schedule:write` | Planerad, Etapp 2 |
+
+Tjänsterna för pass returnerar `{ ok: true, shiftId }` eller `{ ok: false, issues, needsConfirm }` (fel blockerar, bara varningar kräver `confirmWarnings`). Samtidiga ändringar ger `ConflictError` (`version`).
 | `respondToShift(shiftId, 'APPROVED' \| 'CHANGE_REQUESTED')` | `shift:respond:own` | Planerad, Etapp 3 |
 | `createSwapRequest`, `respondToSwapAsColleague`, `postSwapMessage`, `cancelSwapRequest` | `swap:request` | Planerad, Etapp 3 |
 | `decideSwapRequest(requestId, 'APPROVED' \| 'DENIED', comment)` | `swap:decide` | Planerad, Etapp 3 |

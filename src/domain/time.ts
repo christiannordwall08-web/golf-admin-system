@@ -71,6 +71,19 @@ export function stockholmYearMonth(instant: Date): { year: number; month: number
   return { year: dt.year, month: dt.month };
 }
 
+/** "YYYY-MM-DD" plus (eller minus) ett antal dagar. */
+export function addDaysToDateString(date: string, days: number): string {
+  if (!DATE_RE.test(date)) throw new RangeError(`Ogiltigt datum: "${date}"`);
+  const dt = DateTime.fromISO(date, { zone: STOCKHOLM_TZ });
+  if (!dt.isValid) throw new RangeError(`Ogiltigt datum: "${date}"`);
+  return dt.plus({ days }).toISODate() as string;
+}
+
+/** Klockslag "HH:mm" (Stockholm-tid) för en tidpunkt. */
+export function localTimeOf(instant: Date): string {
+  return DateTime.fromJSDate(instant, { zone: STOCKHOLM_TZ }).toFormat("HH:mm");
+}
+
 /** [start, slut) för ett Stockholm-dygn "YYYY-MM-DD" som UTC-tidpunkter (23 eller 25 timmar vid tidsbyte). */
 export function dayBounds(date: string): { start: Date; end: Date } {
   if (!DATE_RE.test(date)) throw new RangeError(`Ogiltigt datum: "${date}"`);
