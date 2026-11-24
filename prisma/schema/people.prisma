@@ -83,6 +83,9 @@ model Employee {
   employmentEndDate      DateTime?        @db.Date
   /// Om true får den anställda se sin egen preliminära ersättning (aldrig andras).
   showEarningsToEmployee Boolean          @default(false)
+  /// false = ingår INTE i timlön och löneunderlag (t.ex. en administratör som styr över de anställda).
+  /// Visas då som "Ej timlön" i stället för "Lön saknas" och räknas inte i timlönekostnaden.
+  hourlyPaid             Boolean          @default(true)
   isTestData             Boolean          @default(false)
   createdAt              DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime         @updatedAt @db.Timestamptz(3)

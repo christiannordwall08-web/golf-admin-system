@@ -85,6 +85,7 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
           minutes: s.minutes,
           category: s.category,
           employeeName: s.employeeName,
+          employeeIsAdmin: s.employeeIsAdmin,
           originalEmployeeName: s.originalEmployeeName,
           phase: s.phase,
           approvalStatus: s.approvalStatus,

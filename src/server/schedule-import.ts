@@ -6,6 +6,7 @@ import { writeAudit } from "@/server/audit";
 import { hashPassword } from "@/server/auth/password";
 import type { PrismaClient } from "@/server/db-client";
 import { ValidationError } from "@/server/errors";
+import { previewEmailBase } from "@/server/dev-preview-profile";
 import { changeHourlyRate } from "@/server/services/pay-rates";
 
 /**
@@ -27,6 +28,13 @@ export const scheduleImportSchema = z.object({
         firstName: z.string().trim().min(1),
         /** Tomt om bara förnamn finns. */
         lastName: z.string().trim().default(""),
+        /**
+         * Administratör som styr över de anställda. Skapar ett admin-konto (utan användbart lösenord, så ingen kan logga in
+         * förrän riktiga konton skapas) kopplat till personens anställning, så att hen kan stå i schemat.
+         */
+        admin: z.boolean().default(false),
+        /** Ingår i timlön? Standard: ja, utom för administratörer (sätt true om en admin ändå har timlön). */
+        hourlyPaid: z.boolean().optional(),
         hourlyRateKr: z.number().min(0).optional(),
         rateFrom: date.optional(),
       }),
@@ -50,6 +58,8 @@ export type ImportResult = {
   employeesExisting: string[];
   ratesSet: string[];
   ratesCorrected: string[];
+  adminsLinked: string[];
+  warnings: string[];
   shiftsCreated: number;
   shiftsSkipped: number;
 };
@@ -94,21 +104,53 @@ export async function importSchedule(db: PrismaClient, raw: ScheduleImportInput)
 
   const actor = await importActor(db);
   const actorRef = { id: actor.id, role: "ADMIN" as const };
-  const result: ImportResult = { employeesCreated: [], employeesExisting: [], ratesSet: [], ratesCorrected: [], shiftsCreated: 0, shiftsSkipped: 0 };
+  const result: ImportResult = { employeesCreated: [], employeesExisting: [], ratesSet: [], ratesCorrected: [], adminsLinked: [], warnings: [], shiftsCreated: 0, shiftsSkipped: 0 };
 
   // 2. Personer och timlön.
   const ids = new Map<(typeof input.employees)[number], string>();
   const thisYear = stockholmYearMonth(new Date()).year;
   for (const e of input.employees) {
+    const hourlyPaid = e.hourlyPaid ?? !e.admin;
     let employee = await db.employee.findFirst({ where: { firstName: e.firstName, lastName: e.lastName, category: input.category } });
-    if (employee) result.employeesExisting.push(label(e));
-    else {
+    if (employee) {
+      result.employeesExisting.push(label(e));
+      if (employee.hourlyPaid !== hourlyPaid) employee = await db.employee.update({ where: { id: employee.id }, data: { hourlyPaid } });
+    } else {
       employee = await db.employee.create({
-        data: { firstName: e.firstName, lastName: e.lastName, category: input.category, isTestData: true },
+        data: { firstName: e.firstName, lastName: e.lastName, category: input.category, hourlyPaid, isTestData: true },
       });
       result.employeesCreated.push(label(e));
     }
     ids.set(e, employee.id);
+
+    if (e.admin) {
+      if (!employee.userId) {
+        // Hitta eller skapa ett admin-testkonto (test-e-post, slumpat lösenord = ingen kan logga in) och koppla det.
+        const base = previewEmailBase(e.firstName, e.lastName);
+        let email = `${base}@demo.test`;
+        let user = await db.user.findUnique({ where: { email } });
+        for (let n = 2; user && (user.role !== "ADMIN" || (await db.employee.count({ where: { userId: user.id, category: input.category } })) > 0); n++) {
+          email = `${base}.${n}@demo.test`;
+          user = await db.user.findUnique({ where: { email } });
+        }
+        user ??= await db.user.create({
+          data: {
+            email,
+            name: label(e),
+            passwordHash: await hashPassword(randomBytes(24).toString("base64url")),
+            role: "ADMIN",
+            isTestData: true,
+          },
+        });
+        await db.employee.update({ where: { id: employee.id }, data: { userId: user.id } });
+        result.adminsLinked.push(label(e));
+      } else {
+        const linked = await db.user.findUnique({ where: { id: employee.userId }, select: { role: true } });
+        if (linked?.role !== "ADMIN") {
+          result.warnings.push(`${label(e)}: kontot är redan kopplat och är inte admin. Rollen ändras aldrig av importen.`);
+        }
+      }
+    }
 
     if (e.hourlyRateKr !== undefined) {
       const ore = Math.round(e.hourlyRateKr * 100);

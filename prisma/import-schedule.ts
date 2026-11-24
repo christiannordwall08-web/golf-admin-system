@@ -24,6 +24,8 @@ async function main() {
     console.log(`  Nya personer:   ${r.employeesCreated.join(", ") || "–"}`);
     console.log(`  Fanns redan:    ${r.employeesExisting.join(", ") || "–"}`);
     console.log(`  Timlön satt:    ${r.ratesSet.join(", ") || "–"}${r.ratesCorrected.length ? `  (rättad: ${r.ratesCorrected.join(", ")})` : ""}`);
+    if (r.adminsLinked.length) console.log(`  Admin-konton:   ${r.adminsLinked.join(", ")}  (utan användbart lösenord)`);
+    for (const w of r.warnings) console.log(`  OBS: ${w}`);
     console.log(`  Pass skapade:   ${r.shiftsCreated}  (hoppade över redan importerade: ${r.shiftsSkipped})`);
   } finally {
     await db.$disconnect();

@@ -28,6 +28,8 @@ export type EmployeeProfile = {
   lastName: string;
   category: WorkCategory;
   status: "ACTIVE" | "INACTIVE";
+  isAdmin: boolean;
+  hourlyPaid: boolean;
   email: string | null;
   phone: string | null;
   employmentStartDate: string | null;
@@ -55,7 +57,7 @@ export async function getEmployeeProfile(
 
   const employee = await db.employee.findUnique({
     where: { id: employeeId },
-    include: { payRates: { orderBy: { validFrom: "asc" } }, user: { select: { employees: { select: { id: true, category: true } } } } },
+    include: { payRates: { orderBy: { validFrom: "asc" } }, user: { select: { role: true, employees: { select: { id: true, category: true } } } } },
   });
   if (!employee) throw new NotFoundError("Den anställde finns inte.");
 
@@ -94,6 +96,8 @@ export async function getEmployeeProfile(
     lastName: employee.lastName,
     category: employee.category,
     status: employee.status,
+    isAdmin: employee.user?.role === "ADMIN" && !employee.hourlyPaid,
+    hourlyPaid: employee.hourlyPaid,
     email: employee.email,
     phone: employee.phone,
     employmentStartDate: employee.employmentStartDate ? dbDateToString(employee.employmentStartDate) : null,

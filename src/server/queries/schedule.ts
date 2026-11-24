@@ -10,6 +10,8 @@ export type ScheduleShift = {
   /** Ansvarig just nu (får timmarna). Namnet kommer från personalregistret. */
   employeeId: string;
   employeeName: string;
+  /** Den ansvariga är administratör som styr (admin-konto och inte timanställd). */
+  employeeIsAdmin: boolean;
   /** Satt bara om passet bytt ägare: vem som ursprungligen tilldelades. */
   originalEmployeeName: string | null;
   startsAt: Date;
@@ -34,7 +36,7 @@ const shiftSelect = {
   approvalStatus: true,
   workStatus: true,
   notes: true,
-  assignedEmployee: { select: { id: true, firstName: true, lastName: true } },
+  assignedEmployee: { select: { id: true, firstName: true, lastName: true, hourlyPaid: true, user: { select: { role: true } } } },
   originalEmployee: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 
@@ -48,7 +50,7 @@ type ShiftRow = {
   approvalStatus: ScheduleShift["approvalStatus"];
   workStatus: ScheduleShift["workStatus"];
   notes: string | null;
-  assignedEmployee: { id: string; firstName: string; lastName: string };
+  assignedEmployee: { id: string; firstName: string; lastName: string; hourlyPaid: boolean; user: { role: string } | null };
   originalEmployee: { id: string; firstName: string; lastName: string };
 };
 
@@ -59,6 +61,7 @@ export function toScheduleShift(row: ShiftRow, now: Date): ScheduleShift {
     category: row.category,
     employeeId: row.assignedEmployee.id,
     employeeName: fullName(row.assignedEmployee),
+    employeeIsAdmin: row.assignedEmployee.user?.role === "ADMIN" && !row.assignedEmployee.hourlyPaid,
     originalEmployeeName:
       row.originalEmployee.id === row.assignedEmployee.id ? null : fullName(row.originalEmployee),
     startsAt: row.startsAt,

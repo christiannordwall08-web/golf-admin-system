@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ValidationError } from "@/server/errors";
+import { getAdminDashboard } from "@/server/queries/dashboard";
 import { getPersonnelOverview } from "@/server/queries/personnel";
+import { getEmployeeProfile } from "@/server/queries/profile";
 import { getScheduleMonth } from "@/server/queries/schedule";
 import { type ScheduleImportInput, importSchedule } from "@/server/schedule-import";
 import { resetDb, testDb } from "./helpers";
@@ -189,3 +191,111 @@ describe("importSchedule – pass med notering och utan timlön (heltidspersonal
     expect([s.startsAt.toISOString(), s.endsAt.toISOString(), s.minutes]).toEqual(["2026-11-19T11:00:00.000Z", "2026-11-19T16:00:00.000Z", 300]);
   });
 });
+
+describe("importSchedule – administratörer som styr över de anställda", () => {
+  const MIXED: ScheduleImportInput = {
+    category: "GOLFSHOP",
+    employees: [
+      { firstName: "Ola", admin: true }, // admin: ingen timlön som standard
+      { firstName: "Pia", hourlyRateKr: 150, rateFrom: "2026-01-01" }, // timanställd
+    ],
+    shifts: [
+      { employee: "Ola", date: "2026-11-05", from: "09:00", to: "17:00", notes: "öppnar" },
+      { employee: "Ola", date: "2026-11-26", from: "09:00", to: "17:00" }, // framtid
+      { employee: "Pia", date: "2026-11-07", from: "11:00", to: "15:00" },
+    ],
+  };
+
+  it("skapar ett admin-konto utan användbart lösenord, kopplat till anställningen, och sätter 'ej timlön'", async () => {
+    const r = await importSchedule(db, MIXED);
+    expect(r.adminsLinked).toEqual(["Ola"]);
+    const ola = await db.employee.findFirstOrThrow({ where: { firstName: "Ola" }, include: { user: true } });
+    expect([ola.hourlyPaid, ola.user?.role, ola.user?.isTestData, ola.user?.email, ola.user?.name]).toEqual([false, "ADMIN", true, "ola.test@demo.test", "Ola"]);
+    expect(ola.user?.passwordHash.startsWith("$argon2id$")).toBe(true);
+    const pia = await db.employee.findFirstOrThrow({ where: { firstName: "Pia" } });
+    expect([pia.hourlyPaid, pia.userId]).toEqual([true, null]);
+  });
+
+  it("administratören kan inte logga in (okänt slumpat lösenord) men kontot finns som admin", async () => {
+    await importSchedule(db, MIXED);
+    const { authenticate } = await import("@/server/auth/login");
+    for (const password of ["password", "ola", "demo-losenord-2026", "test-password-12345"]) {
+      expect(await authenticate(db, { email: "ola.test@demo.test", password, audience: "ADMIN" })).toEqual({ ok: false, reason: "INVALID" });
+    }
+  });
+
+  it("personallistan skiljer administratörer från anställda och räknar bara timanställda i timmar, kronor och saknad lön", async () => {
+    await importSchedule(db, MIXED);
+    const { rows, totals } = await getPersonnelOverview(db, await admin(), { year: 2026, month: 11, now: NOW });
+    const ola = rows.find((r) => r.fullName === "Ola")!;
+    const pia = rows.find((r) => r.fullName === "Pia")!;
+    expect([ola.isAdmin, ola.hourlyPaid, ola.hourlyRateOre, ola.completedMinutes, ola.remainingMinutes]).toEqual([true, false, null, 480, 480]); // tiden på plats räknas för personen...
+    expect([pia.isAdmin, pia.hourlyPaid, pia.completedMinutes, pia.estimatedCompensationOre]).toEqual([false, true, 240, 60_000]);
+    // ...men inte i timlönetotalerna:
+    expect(totals).toMatchObject({ employees: 1, admins: 1, completedMinutes: 240, remainingMinutes: 0, estimatedCompensationOre: 60_000, shiftsMissingRate: 0 });
+    expect(totals.byCategory.GOLFSHOP).toMatchObject({ employees: 1, admins: 1, completedMinutes: 240 });
+  });
+
+  it("adminöversikten räknar anställda utan administratörer, och schemat markerar vem som är admin", async () => {
+    await importSchedule(db, MIXED);
+    const d = await getAdminDashboard(db, await admin(), NOW);
+    expect(d.employees).toEqual({ total: 1, golfshop: 1, bollplockare: 0, admins: 1 });
+    const shifts = await getScheduleMonth(db, await admin(), { year: 2026, month: 11, now: NOW });
+    expect(shifts.map((s) => [s.employeeName, s.employeeIsAdmin])).toEqual([["Ola", true], ["Pia", false], ["Ola", true]]);
+  });
+
+  it("profilen visar att personen är administratör och inte timanställd", async () => {
+    await importSchedule(db, MIXED);
+    const ola = await db.employee.findFirstOrThrow({ where: { firstName: "Ola" } });
+    const p = await getEmployeeProfile(db, await admin(), ola.id, { year: 2026, month: 11, now: NOW });
+    expect([p.isAdmin, p.hourlyPaid, p.currentHourlyRateOre]).toEqual([true, false, null]);
+  });
+
+  it("är idempotent, och en redan importerad anställd kan senare göras till admin (kopplar konto, ändrar inte pass)", async () => {
+    const asEmployee: ScheduleImportInput = { ...MIXED, employees: [{ firstName: "Ola", hourlyPaid: true }, MIXED.employees[1]] };
+    await importSchedule(db, asEmployee);
+    expect(await db.user.count({ where: { role: "ADMIN", name: "Ola" } })).toBe(0);
+
+    const second = await importSchedule(db, MIXED); // nu som admin
+    expect(second.adminsLinked).toEqual(["Ola"]);
+    expect(second.shiftsCreated).toBe(0);
+    const third = await importSchedule(db, MIXED);
+    expect(third.adminsLinked).toEqual([]); // redan kopplad
+    expect(await db.user.count({ where: { name: "Ola" } })).toBe(1);
+    expect((await db.employee.findFirstOrThrow({ where: { firstName: "Ola" } })).hourlyPaid).toBe(false);
+  });
+
+  it("ändrar aldrig rollen på ett redan kopplat konto som inte är admin (varnar i stället)", async () => {
+    await importSchedule(db, { ...MIXED, employees: [{ firstName: "Ola" }, MIXED.employees[1]] });
+    const ola = await db.employee.findFirstOrThrow({ where: { firstName: "Ola" } });
+    const staff = await db.user.create({ data: { email: "ola.staff@demo.test", passwordHash: "x", role: "GOLFSHOP", isTestData: true } });
+    await db.employee.update({ where: { id: ola.id }, data: { userId: staff.id } });
+
+    const r = await importSchedule(db, MIXED);
+    expect(r.adminsLinked).toEqual([]);
+    expect(r.warnings).toHaveLength(1);
+    expect((await db.user.findUniqueOrThrow({ where: { id: staff.id } })).role).toBe("GOLFSHOP");
+  });
+});
+
+describe("administratör som också är timanställd", () => {
+  it("visas bland de anställda med sin timlön och sina timmar, utan admin-markering (så en admin-konto kopplat till en timanställd inte felklassas)", async () => {
+    await importSchedule(db, MIXED_FOR_HOURLY);
+    const pia = await db.employee.findFirstOrThrow({ where: { firstName: "Pia" } });
+    const adminUser = await db.user.create({ data: { email: "pia.test@demo.test", name: "Pia", passwordHash: "x", role: "ADMIN", isTestData: true } });
+    await db.employee.update({ where: { id: pia.id }, data: { userId: adminUser.id } });
+
+    const { rows, totals } = await getPersonnelOverview(db, await admin(), { year: 2026, month: 11, now: NOW });
+    const row = rows.find((r) => r.fullName === "Pia")!;
+    expect([row.isAdmin, row.hourlyPaid, row.completedMinutes, row.estimatedCompensationOre]).toEqual([false, true, 240, 60_000]);
+    expect(totals).toMatchObject({ employees: 1, admins: 0, estimatedCompensationOre: 60_000 });
+    const shifts = await getScheduleMonth(db, await admin(), { year: 2026, month: 11, now: NOW });
+    expect(shifts.every((s) => s.employeeIsAdmin === false)).toBe(true);
+  });
+});
+
+const MIXED_FOR_HOURLY: ScheduleImportInput = {
+  category: "GOLFSHOP",
+  employees: [{ firstName: "Pia", hourlyRateKr: 150, rateFrom: "2026-01-01" }],
+  shifts: [{ employee: "Pia", date: "2026-11-07", from: "11:00", to: "15:00" }],
+};

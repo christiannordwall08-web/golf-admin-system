@@ -2,6 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import type { ShiftPhase } from "@/domain/hours";
 import { CATEGORY_LABEL, type WorkCategory } from "@/domain/roles";
 
+export function AdminTag() {
+  return <Badge tone="neutral">Admin</Badge>;
+}
+
 export function CategoryBadge({ category }: { category: WorkCategory }) {
   return <Badge tone={category === "GOLFSHOP" ? "brand" : "info"}>{CATEGORY_LABEL[category]}</Badge>;
 }

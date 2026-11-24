@@ -71,7 +71,7 @@ Testat i `tests/unit/roles.test.ts`. Admin äger alla behörigheter. Behörighet
 | `listPayRateHistory(db, actor, employeeId)` | `payrates:read:all` | **Finns, testad** |
 | `getRateForWorkDate(db, actor, employeeId, 'YYYY-MM-DD')` | `payrates:read:all` | **Finns, testad** |
 | `getAdminDashboard(db, actor, now)` | `employees:read:all`, `payrates:read:all`, `worktime:read:all`, `schedule:read:all`, `swap:read:all` | **Finns, testad** |
-| `getPersonnelOverview(db, actor, { year, month, category?, search? })` (lön, genomfört, kommande, preliminär ersättning, nästa pass) | `employees:read:all`, `payrates:read:all`, `worktime:read:all` | **Finns, testad** |
+| `getPersonnelOverview(db, actor, { year, month, category?, search? })` (lön, genomfört, kommande, preliminär ersättning, nästa pass; varje rad har `isAdmin` och `hourlyPaid`, och totalerna räknar bara timanställda) | `employees:read:all`, `payrates:read:all`, `worktime:read:all` | **Finns, testad** |
 | `getEmployeeProfile(db, actor, employeeId, { year, month })` | samma | **Finns, testad** |
 | `getScheduleMonth(db, actor, { year, month, category? })` (hela schemat, namn vid varje pass) | `schedule:read:all` | **Finns, testad** |
 | `getMyMonth(db, actor, { userId, employeeId, year, month })` (anställds egna publicerade pass och timmar, avgränsas på `userId`) | `shift:read:own` | **Finns, testad** |

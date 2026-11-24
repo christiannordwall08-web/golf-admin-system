@@ -1,7 +1,7 @@
 import { AlarmClock, CalendarClock, CircleDollarSign, Clock, FileEdit, Hourglass, ShieldCheck, Users, Repeat, UserCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ApprovalBadge, CategoryBadge, PhaseBadge } from "@/components/schedule/shift-badges";
+import { AdminTag, ApprovalBadge, CategoryBadge, PhaseBadge } from "@/components/schedule/shift-badges";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -39,11 +39,11 @@ export default async function AdminHome() {
       />
 
       <section aria-label="Nyckeltal" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Anställda (aktiva)" value={d.employees.total} icon={Users} hint={`Golfshop ${d.employees.golfshop} · Bollplockare ${d.employees.bollplockare}`} />
+        <StatCard label="Anställda (aktiva)" value={d.employees.total} icon={Users} hint={`Golfshop ${d.employees.golfshop} · Bollplockare ${d.employees.bollplockare} · Admin ${d.employees.admins}`} />
         <StatCard label="Schemalagda idag" value={todayPeople} icon={CalendarClock} hint={`${d.today.length} pass`} />
         <StatCard label="Pågår just nu (enligt schema)" value={ongoing} icon={AlarmClock} hint="Schemabaserat, inte verifierad incheckning" />
-        <StatCard label="Genomfört i månaden" value={formatDuration(d.monthTotals.completedMinutes)} icon={Clock} hint="Enligt schema, ej godkänd tid" />
-        <StatCard label="Kommande i månaden" value={formatDuration(d.monthTotals.remainingMinutes)} icon={Hourglass} hint="Schemalagt, inte genomfört" />
+        <StatCard label="Genomfört i månaden" value={formatDuration(d.monthTotals.completedMinutes)} icon={Clock} hint="Timanställda · enligt schema, ej godkänd" />
+        <StatCard label="Kommande i månaden" value={formatDuration(d.monthTotals.remainingMinutes)} icon={Hourglass} hint="Timanställda · schemalagt, inte genomfört" />
         <StatCard label="Godkända timmar" value={formatDuration(d.approvedMinutes)} icon={UserCheck} hint="Godkännande byggs i Etapp 4" />
         <StatCard label="Preliminär lönekostnad" value={formatSek(d.monthTotals.estimatedCompensationOre)} icon={CircleDollarSign} hint={d.monthTotals.shiftsMissingRate > 0 ? `${d.monthTotals.shiftsMissingRate} genomförda pass saknar timlön och ingår inte` : "Genomförda pass × timlön, ej godkänd"} />
         <StatCard label="Väntar på godkännande" value={d.actions.pendingApprovals} icon={ShieldCheck} hint="Pass som personalen inte accepterat än" />
@@ -68,7 +68,7 @@ export default async function AdminHome() {
                 <tbody>
                   {d.today.map((s) => (
                     <tr key={s.id}>
-                      <Td className="font-medium">{s.employeeName}</Td>
+                      <Td className="font-medium"><span className="inline-flex items-center gap-2">{s.employeeName}{s.employeeIsAdmin ? <AdminTag /> : null}</span></Td>
                       <Td><CategoryBadge category={s.category} /></Td>
                       <Td>{formatDateShort(s.startsAt)}</Td>
                       <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>
@@ -99,7 +99,7 @@ export default async function AdminHome() {
                 <tbody>
                   {d.upcoming.map((s) => (
                     <tr key={s.id}>
-                      <Td className="font-medium">{s.employeeName}</Td>
+                      <Td className="font-medium"><span className="inline-flex items-center gap-2">{s.employeeName}{s.employeeIsAdmin ? <AdminTag /> : null}</span></Td>
                       <Td><CategoryBadge category={s.category} /></Td>
                       <Td>{formatDateShort(s.startsAt)}</Td>
                       <Td className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</Td>

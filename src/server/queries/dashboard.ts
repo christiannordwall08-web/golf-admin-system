@@ -7,7 +7,8 @@ import { type ScheduleShift, shiftSelect, toScheduleShift } from "./schedule";
 export type AdminDashboard = {
   year: number;
   month: number;
-  employees: { total: number; golfshop: number; bollplockare: number };
+  /** Anställda (utan administratörer) per grupp, samt antal administratörer. */
+  employees: { total: number; golfshop: number; bollplockare: number; admins: number };
   /** Timmar och preliminär ersättning för månaden, enligt schema (ej godkänt). */
   monthTotals: PersonnelTotals;
   /** Godkända timmar i månaden (WorkTimeEntry). 0 tills godkännande byggs (Etapp 4). */
@@ -62,7 +63,7 @@ export async function getAdminDashboard(db: DbClient, actor: Actor, now: Date = 
   return {
     year,
     month,
-    employees: { total: golfshop + bollplockare, golfshop, bollplockare },
+    employees: { total: golfshop + bollplockare, golfshop, bollplockare, admins: overview.totals.admins },
     monthTotals: overview.totals,
     approvedMinutes: approved._sum.approvedMinutes ?? 0,
     today: todayRows.map((r) => toScheduleShift(r, now)),

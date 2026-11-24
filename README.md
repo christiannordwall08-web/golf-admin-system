@@ -71,12 +71,14 @@ riktiga namn och scheman ska aldrig committas):
 {
   "category": "GOLFSHOP",
   "approvalStatus": "APPROVED",
-  "employees": [{ "firstName": "Anna", "hourlyRateKr": 150, "rateFrom": "2026-01-01" }, { "firstName": "Bo" }],
+  "employees": [{ "firstName": "Anna", "hourlyRateKr": 150, "rateFrom": "2026-01-01" }, { "firstName": "Bo", "admin": true }],
   "shifts": [{ "employee": "Anna", "date": "2026-11-01", "from": "11:00", "to": "15:00", "notes": "öppnar" }]
 }
 ```
 
-`hourlyRateKr` och `notes` är valfria. Utan timlön visas **Lön saknas** (aldrig 0 kr) och passen ingår inte i ersättningen, men timmarna räknas. `notes` är fri text
+`hourlyRateKr`, `notes`, `admin` och `hourlyPaid` är valfria. `"admin": true` markerar en **administratör som styr över de anställda**: importen skapar ett admin-konto
+(utan användbart lösenord, så ingen kan logga in förrän riktiga konton skapas) kopplat till personens anställning, och personen ingår **inte i timlön** (`hourlyPaid` är då `false`
+som standard). I Admin-vyn visas hen under **Administratörer** med "Ej timlön" och står kvar i schemat med en Admin-markering. Utan timlön visas **Lön saknas** (aldrig 0 kr) och passen ingår inte i ersättningen, men timmarna räknas. `notes` är fri text
 från schemat (t.ex. "öppnar") och visas vid passet.
 
 - `npm run db:import -- .local/min-fil.json` läser in den i den lokala databasen. Importen är idempotent (inget dubbleras) och vägrar köra i production eller mot en

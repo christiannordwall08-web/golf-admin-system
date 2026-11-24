@@ -3,7 +3,7 @@ import { CATEGORY_LABEL, type WorkCategory } from "@/domain/roles";
 import { formatDateLong, formatTimeRange, localToInstant } from "@/domain/time";
 import { formatDuration } from "@/domain/money";
 import { cn } from "@/lib/utils";
-import { ApprovalBadge, CategoryBadge, DraftBadge, PhaseBadge } from "./shift-badges";
+import { AdminTag, ApprovalBadge, CategoryBadge, DraftBadge, PhaseBadge } from "./shift-badges";
 import type { ShiftPhase } from "@/domain/hours";
 
 export type CalendarShift = {
@@ -15,6 +15,8 @@ export type CalendarShift = {
   category: WorkCategory;
   /** Namn på ansvarig person. Utelämnas i personalens egna vyer (där är det alltid jag). */
   employeeName?: string;
+  /** Den ansvariga är administratör (visas som liten markering). */
+  employeeIsAdmin?: boolean;
   originalEmployeeName?: string | null;
   phase: ShiftPhase;
   approvalStatus: "PENDING" | "APPROVED" | "CHANGE_REQUESTED" | "APPROVED_AFTER_SWAP";
@@ -102,7 +104,12 @@ export function ScheduleCalendar({
                               s.phase === "COMPLETED" && "opacity-75",
                             )}
                           >
-                            {s.employeeName ? <span className="block truncate font-semibold">{s.employeeName}</span> : null}
+                            {s.employeeName ? (
+                              <span className="block truncate font-semibold">
+                                {s.employeeName}
+                                {s.employeeIsAdmin ? <span className="ml-1 text-[9px] font-medium tracking-wide uppercase opacity-70">admin</span> : null}
+                              </span>
+                            ) : null}
                             <span className="block tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
                             {s.note ? <span className="block text-[10px] font-medium italic">{s.note}</span> : null}
                           </li>
@@ -132,6 +139,7 @@ export function ScheduleCalendar({
                   {byDate.get(date)!.map((s) => (
                     <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                       {s.employeeName ? <span className="font-medium">{s.employeeName}</span> : null}
+                      {s.employeeIsAdmin ? <AdminTag /> : null}
                       <span className="tabular-nums">{formatTimeRange(s.startsAt, s.endsAt)}</span>
                       <span className="text-ink-muted">{formatDuration(s.minutes)}</span>
                       {s.note ? <span className="rounded bg-stone-100 px-1.5 py-0.5 text-xs font-medium italic">{s.note}</span> : null}

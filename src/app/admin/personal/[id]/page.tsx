@@ -53,6 +53,7 @@ export default async function EmployeeProfilePage({
       />
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <CategoryBadge category={p.category} />
+        {p.isAdmin ? <Badge tone="neutral">Administratör</Badge> : null}
         <Badge tone={p.status === "ACTIVE" ? "success" : "neutral"}>{p.status === "ACTIVE" ? "Aktiv" : "Inaktiv"}</Badge>
         {p.otherEmploymentCategories.map((c) => (
           <Badge key={c} tone="neutral">Även anställd: {CATEGORY_LABEL[c]}</Badge>
@@ -60,10 +61,10 @@ export default async function EmployeeProfilePage({
       </div>
 
       <section aria-label="Sammanfattning" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Timlön idag" value={p.currentHourlyRateOre === null ? "Saknas" : `${formatSek(p.currentHourlyRateOre)}/h`} />
+        <StatCard label="Timlön idag" value={p.currentHourlyRateOre === null ? (p.hourlyPaid ? "Saknas" : "Ej timlön") : `${formatSek(p.currentHourlyRateOre)}/h`} hint={!p.hourlyPaid ? "Ingår inte i timlön" : undefined} />
         <StatCard label="Genomfört i månaden" value={formatDuration(p.summary.completedMinutes)} hint={`${p.summary.completedCount} pass · enligt schema`} />
         <StatCard label="Kommande i månaden" value={formatDuration(p.summary.remainingMinutes)} hint={`${p.summary.remainingCount} pass`} />
-        <StatCard label="Preliminär ersättning" value={formatSek(p.estimatedCompensationOre)} hint={p.shiftsMissingRate > 0 ? `Timlön saknas för ${p.shiftsMissingRate} genomförda pass` : "Genomförda pass, ej godkänd"} />
+        <StatCard label="Preliminär ersättning" value={!p.hourlyPaid && p.currentHourlyRateOre === null ? "–" : formatSek(p.estimatedCompensationOre)} hint={!p.hourlyPaid && p.currentHourlyRateOre === null ? "Ingår inte i timlön" : p.shiftsMissingRate > 0 ? `Timlön saknas för ${p.shiftsMissingRate} genomförda pass` : "Genomförda pass, ej godkänd"} />
       </section>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">

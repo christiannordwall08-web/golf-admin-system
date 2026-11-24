@@ -31,7 +31,7 @@ DailyClosing, DailyClosingAssignment   (dagsavslut, kopplas till anställd och a
 |---|---|---|
 | `User` | Inloggning och åtkomstnivå. `role = ADMIN` får använda admininloggningen. Har 0–N anställningar. `name` används bara för användare utan personalpost. | people |
 | `Session` | Databassession. `id` är SHA-256 av tokenen. `context` (`ADMIN` / `EMPLOYEE`) anger vilken inloggning den kommer från och vilken panel den får använda. | people |
-| `Employee` | En anställning i personalregistret: namn, **arbetskategori**, status, kontaktuppgifter. Unik på (användare, kategori), så en person kan vara anställd i både Golfshop och Bollplockare. Källan till alla namn som visas. | people |
+| `Employee` | En anställning i personalregistret: namn, **arbetskategori**, status, kontaktuppgifter. Unik på (användare, kategori), så en person kan vara anställd i både Golfshop och Bollplockare. `hourlyPaid = false` betyder att personen **inte ingår i timlön/löneunderlag** (t.ex. en administratör som styr över de anställda): visas då som "Ej timlön" (aldrig "Lön saknas") och räknas inte i timlönekostnaden. En **administratör** i vyerna = admin-konto kopplat till en anställning som inte är timanställd. Källan till alla namn som visas. | people |
 | `Schedule` | Ett månadsschema per kategori (Schema A Golfshop, Schema B Bollplockare). Unik på (kategori, år, månad). | scheduling |
 | `SchedulePublication` | En rad per publicering (vem, när, hur många pass/anställda). | scheduling |
 | `Shift` | Ett arbetspass. Alltid kopplat till en ansvarig anställd. | scheduling |

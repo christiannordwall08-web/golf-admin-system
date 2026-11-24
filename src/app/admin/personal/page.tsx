@@ -10,13 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableWrap, Td, Th } from "@/components/ui/table";
-import { monthParam, parseMonthParam } from "@/domain/calendar";
+import { type YearMonth, monthParam, parseMonthParam } from "@/domain/calendar";
 import { formatDuration, formatSek } from "@/domain/money";
 import type { WorkCategory } from "@/domain/roles";
 import { formatDateShort, formatMonthYear, formatTimeRange } from "@/domain/time";
 import { requireAdminArea, toActor } from "@/server/auth/current-user";
 import { getDb } from "@/server/db";
-import { getPersonnelOverview } from "@/server/queries/personnel";
+import { type PersonnelRow, getPersonnelOverview } from "@/server/queries/personnel";
 
 export const metadata: Metadata = { title: "Personal & löner" };
 
@@ -30,7 +30,11 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
   const category = sp.kat ? (CATEGORY_PARAM[sp.kat] ?? null) : null;
   const q = (sp.q ?? "").slice(0, 60);
 
-  const { rows, totals } = await getPersonnelOverview(getDb(), toActor(session), { ...ym, category, search: q, now });
+  const { rows } = await getPersonnelOverview(getDb(), toActor(session), { ...ym, category, search: q, now });
+  const staff = rows.filter((r) => !r.isAdmin);
+  const admins = rows.filter((r) => r.isAdmin);
+  // Pass utan timlön bland dem som ingår i timlön (visas i tabellerna, och nämns under dem).
+  const missingRate = rows.filter((r) => r.hourlyPaid).reduce((n, r) => n + r.shiftsMissingRate, 0);
   const filters = { q: q || undefined, kat: sp.kat && CATEGORY_PARAM[sp.kat] ? sp.kat : undefined };
   const tab = (key: string | undefined, label: string) => {
     const qs = new URLSearchParams();
@@ -73,62 +77,104 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
       </div>
 
       {rows.length === 0 ? (
-        <Card><EmptyState title="Inga anställda hittades">Ändra sökningen eller filtret.</EmptyState></Card>
+        <Card><EmptyState title="Inga hittades">Ändra sökningen eller filtret.</EmptyState></Card>
       ) : (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <Th>Namn</Th><Th>Kategori</Th><Th align="right">Timlön</Th>
-                <Th align="right">Genomfört</Th><Th align="right">Kommande</Th><Th align="right">Totalt</Th>
-                <Th align="right">Prel. ersättning</Th><Th>Nästa pass</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.employeeId} className="hover:bg-brand-50/40">
-                  <Td className="font-medium whitespace-nowrap">
-                    <Link href={`/admin/personal/${r.employeeId}?m=${monthParam(ym)}`} className="text-brand-800 hover:underline">{r.fullName}</Link>
-                  </Td>
-                  <Td><CategoryBadge category={r.category} /></Td>
-                  <Td align="right">{r.hourlyRateOre === null ? <span className="text-danger-700">Saknas</span> : `${formatSek(r.hourlyRateOre)}/h`}</Td>
-                  <Td align="right">{formatDuration(r.completedMinutes)}</Td>
-                  <Td align="right">{formatDuration(r.remainingMinutes)}</Td>
-                  <Td align="right" className="font-medium">{formatDuration(r.totalMinutes)}</Td>
-                  <Td align="right">
-                    {r.shiftsMissingRate > 0 && r.estimatedCompensationOre === 0 ? <span className="text-danger-700">Lön saknas</span> : formatSek(r.estimatedCompensationOre)}
-                  </Td>
-                  <Td className="whitespace-nowrap tabular-nums">
-                    {r.nextShift ? `${formatDateShort(r.nextShift.startsAt)} ${formatTimeRange(r.nextShift.startsAt, r.nextShift.endsAt)}` : <span className="text-ink-muted">Inget planerat</span>}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-stone-50/70 font-semibold">
-                <Td>Totalt ({totals.employees} anställda)</Td><Td />
-                <Td align="right" />
-                <Td align="right">{formatDuration(totals.completedMinutes)}</Td>
-                <Td align="right">{formatDuration(totals.remainingMinutes)}</Td>
-                <Td align="right">{formatDuration(totals.totalMinutes)}</Td>
-                <Td align="right">{formatSek(totals.estimatedCompensationOre)}</Td><Td />
-              </tr>
-            </tfoot>
-          </Table>
-        </TableWrap>
+        <>
+          <section aria-labelledby="staff-heading">
+            <h2 id="staff-heading" className="mb-2 text-base font-semibold">Anställda</h2>
+            {staff.length === 0 ? (
+              <Card><EmptyState title="Inga anställda hittades" /></Card>
+            ) : (
+              <PersonnelTable rows={staff} ym={ym} totalsLabel={`Totalt (${staff.length} anställda)`} />
+            )}
+          </section>
+
+          {admins.length > 0 ? (
+            <section aria-labelledby="admin-heading" className="mt-8">
+              <h2 id="admin-heading" className="text-base font-semibold">Administratörer</h2>
+              <p className="mb-2 text-sm text-ink-muted">Styr över de anställda och står i schemat. De ingår inte i timlön om inget annat anges.</p>
+              <PersonnelTable rows={admins} ym={ym} />
+            </section>
+          ) : null}
+        </>
       )}
 
       <Notice tone="info" title="Så läses tabellen" className="mt-6">
         <b>Genomfört</b> = pass vars sluttid passerat, <b>Kommande</b> = återstående schemalagt i månaden (inkl. pågående).
         Det är tid enligt schema, inte godkänd arbetstid. <b>Prel. ersättning</b> räknas bara på genomförda pass med lönen som gällde
         respektive dag. Godkännande och löneunderlag byggs i Etapp 4.
-        {totals.shiftsMissingRate > 0 ? (
+        {missingRate > 0 ? (
           <>
             {" "}
-            <b>{totals.shiftsMissingRate} genomförda pass saknar timlön</b> och ingår inte i ersättningen ovan (de visas som Lön saknas, inte som 0 kr).
+            <b>{missingRate} genomförda pass saknar timlön</b> och ingår inte i ersättningen (de visas som Lön saknas, inte som 0 kr).
           </>
         ) : null}
       </Notice>
     </>
+  );
+}
+
+/** Tabell över personal. Den som inte ingår i timlön visas som "Ej timlön" och räknas inte i totalen. */
+function PersonnelTable({ rows, ym, totalsLabel }: { rows: PersonnelRow[]; ym: YearMonth; totalsLabel?: string }) {
+  const paid = rows.filter((r) => r.hourlyPaid);
+  const sum = (pick: (r: PersonnelRow) => number) => paid.reduce((n, r) => n + pick(r), 0);
+  return (
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Namn</Th><Th>Kategori</Th><Th align="right">Timlön</Th>
+            <Th align="right">Genomfört</Th><Th align="right">Kommande</Th><Th align="right">Totalt</Th>
+            <Th align="right">Prel. ersättning</Th><Th>Nästa pass</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.employeeId} className="hover:bg-brand-50/40">
+              <Td className="font-medium">
+                <Link href={`/admin/personal/${r.employeeId}?m=${monthParam(ym)}`} className="text-brand-800 hover:underline">{r.fullName}</Link>
+              </Td>
+              <Td><CategoryBadge category={r.category} /></Td>
+              <Td align="right">
+                {!r.hourlyPaid && r.hourlyRateOre === null ? (
+                  <span className="text-ink-muted">Ej timlön</span>
+                ) : r.hourlyRateOre === null ? (
+                  <span className="text-danger-700">Saknas</span>
+                ) : (
+                  `${formatSek(r.hourlyRateOre)}/h`
+                )}
+              </Td>
+              <Td align="right">{formatDuration(r.completedMinutes)}</Td>
+              <Td align="right">{formatDuration(r.remainingMinutes)}</Td>
+              <Td align="right" className="font-medium">{formatDuration(r.totalMinutes)}</Td>
+              <Td align="right">
+                {!r.hourlyPaid ? (
+                  <span className="text-ink-muted">–</span>
+                ) : r.shiftsMissingRate > 0 && r.estimatedCompensationOre === 0 ? (
+                  <span className="text-danger-700">Lön saknas</span>
+                ) : (
+                  formatSek(r.estimatedCompensationOre)
+                )}
+              </Td>
+              <Td className="tabular-nums">
+                {r.nextShift ? `${formatDateShort(r.nextShift.startsAt)} ${formatTimeRange(r.nextShift.startsAt, r.nextShift.endsAt)}` : <span className="text-ink-muted">Inget planerat</span>}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+        {totalsLabel ? (
+          <tfoot>
+            <tr className="bg-stone-50/70 font-semibold">
+              <Td>{totalsLabel}</Td><Td />
+              <Td align="right" />
+              <Td align="right">{formatDuration(sum((r) => r.completedMinutes))}</Td>
+              <Td align="right">{formatDuration(sum((r) => r.remainingMinutes))}</Td>
+              <Td align="right">{formatDuration(sum((r) => r.totalMinutes))}</Td>
+              <Td align="right">{formatSek(sum((r) => r.estimatedCompensationOre))}</Td><Td />
+            </tr>
+          </tfoot>
+        ) : null}
+      </Table>
+    </TableWrap>
   );
 }

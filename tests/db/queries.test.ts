@@ -174,7 +174,7 @@ describe("Adminöversikt: bara riktiga siffror", () => {
     await shift(lisa, "2026-11-29", "09:00", "13:00", { publicationStatus: "DRAFT" });
 
     const d = await getAdminDashboard(db, admin, NOW);
-    expect(d.employees).toEqual({ total: 3, golfshop: 2, bollplockare: 1 });
+    expect(d.employees).toEqual({ total: 3, golfshop: 2, bollplockare: 1, admins: 0 });
     expect(d.today.map((s) => [s.employeeName, s.phase])).toEqual([
       ["Oscar Nilsson", "COMPLETED"],
       ["Erik Andersson", "ONGOING"],

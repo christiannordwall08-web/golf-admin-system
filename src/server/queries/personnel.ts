@@ -12,6 +12,13 @@ export type PersonnelRow = {
   fullName: string;
   category: WorkCategory;
   status: "ACTIVE" | "INACTIVE";
+  /**
+   * Administratör som styr över de anställda: kontot har admin-åtkomst OCH personen är inte timanställd.
+   * En admin som själv är timanställd räknas bland de anställda (så att hens timlön och timmar syns som vanligt).
+   */
+  isAdmin: boolean;
+  /** false = ingår inte i timlön/löneunderlag (visas som "Ej timlön", aldrig som "Lön saknas"). */
+  hourlyPaid: boolean;
   /** Gällande timlön idag (ören), null om ingen lön är satt. */
   hourlyRateOre: number | null;
   /** Genomfört enligt schema (ej godkänd tid). */
@@ -26,14 +33,18 @@ export type PersonnelRow = {
 };
 
 export type PersonnelTotals = {
+  /** Anställda som inte är administratörer. */
   employees: number;
+  /** Administratörer (som också står i schemat). */
+  admins: number;
+  /** Timmar och ersättning gäller bara personer som ingår i timlön (`hourlyPaid`). */
   completedMinutes: number;
   remainingMinutes: number;
   totalMinutes: number;
   estimatedCompensationOre: number;
   /** Genomförda pass där ingen timlön gällde. De ingår INTE i ersättningen. */
   shiftsMissingRate: number;
-  byCategory: Record<WorkCategory, { employees: number; completedMinutes: number; remainingMinutes: number }>;
+  byCategory: Record<WorkCategory, { employees: number; admins: number; completedMinutes: number; remainingMinutes: number }>;
 };
 
 /**
@@ -62,7 +73,7 @@ export async function getPersonnelOverview(
         ],
       })),
     },
-    include: { payRates: true },
+    include: { payRates: true, user: { select: { role: true } } },
   });
   const ids = employees.map((e) => e.id);
 
@@ -102,6 +113,8 @@ export async function getPersonnelOverview(
       fullName: fullName(e),
       category: e.category,
       status: e.status,
+      isAdmin: e.user?.role === "ADMIN" && !e.hourlyPaid,
+      hourlyPaid: e.hourlyPaid,
       hourlyRateOre: resolveRateForDate(rates, today)?.hourlyRateOre ?? null,
       completedMinutes: summary.completedMinutes,
       remainingMinutes: summary.remainingMinutes,
@@ -114,25 +127,34 @@ export async function getPersonnelOverview(
   rows.sort(compareNames);
 
   const totals: PersonnelTotals = {
-    employees: rows.length,
+    employees: 0,
+    admins: 0,
     completedMinutes: 0,
     remainingMinutes: 0,
     totalMinutes: 0,
     estimatedCompensationOre: 0,
     shiftsMissingRate: 0,
     byCategory: {
-      GOLFSHOP: { employees: 0, completedMinutes: 0, remainingMinutes: 0 },
-      BOLLPLOCKARE: { employees: 0, completedMinutes: 0, remainingMinutes: 0 },
+      GOLFSHOP: { employees: 0, admins: 0, completedMinutes: 0, remainingMinutes: 0 },
+      BOLLPLOCKARE: { employees: 0, admins: 0, completedMinutes: 0, remainingMinutes: 0 },
     },
   };
   for (const r of rows) {
+    const c = totals.byCategory[r.category];
+    if (r.isAdmin) {
+      totals.admins++;
+      c.admins++;
+    } else {
+      totals.employees++;
+      c.employees++;
+    }
+    // Timmar och pengar räknas bara för dem som ingår i timlön.
+    if (!r.hourlyPaid) continue;
     totals.completedMinutes += r.completedMinutes;
     totals.remainingMinutes += r.remainingMinutes;
     totals.totalMinutes += r.totalMinutes;
     totals.estimatedCompensationOre += r.estimatedCompensationOre;
     totals.shiftsMissingRate += r.shiftsMissingRate;
-    const c = totals.byCategory[r.category];
-    c.employees++;
     c.completedMinutes += r.completedMinutes;
     c.remainingMinutes += r.remainingMinutes;
   }
