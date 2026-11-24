@@ -1,6 +1,9 @@
 import type { WorkCategory } from "./roles";
 import { InvalidLocalTimeError, addDaysToDateString, isWholeMinute, localToInstant, minutesBetween } from "./time";
 
+/** Standardtid när ett namn dras till en dag i schemat (11.00–15.00). Passet kan ändras efteråt. */
+export const DEFAULT_SHIFT_TIMES = { from: "11:00", to: "15:00" } as const;
+
 /** Längsta tillåtna pass. Längre pass är nästan säkert ett inmatningsfel. */
 export const MAX_SHIFT_MINUTES = 16 * 60;
 

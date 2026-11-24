@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SHIFT_TIMES,
   type ExistingShift,
   analyzeShift,
+  buildShiftInterval,
   hasBlockingIssues,
   hasShiftEnded,
   intervalsOverlap,
   isMaterialShiftChange,
   validateShiftTimes,
 } from "@/domain/shifts";
-import { localToInstant } from "@/domain/time";
+import { localToInstant, minutesBetween } from "@/domain/time";
 
 const at = (date: string, time: string) => localToInstant(date, time);
 const erik = { id: "erik", category: "GOLFSHOP" as const, status: "ACTIVE" as const };
@@ -185,5 +187,16 @@ describe("buildShiftInterval (formulär -> tidpunkter)", () => {
     ]) {
       expect(buildShiftInterval(bad)).toMatchObject({ ok: false });
     }
+  });
+});
+
+describe("standardtid när ett namn dras till en dag", () => {
+  it("är 11.00–15.00 svensk tid, fyra timmar, även över sommartidsbyte", () => {
+    for (const date of ["2026-12-02", "2026-03-29", "2026-10-25"]) {
+      const r = buildShiftInterval({ date, ...DEFAULT_SHIFT_TIMES });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(minutesBetween(r.startsAt, r.endsAt)).toBe(240);
+    }
+    expect(DEFAULT_SHIFT_TIMES).toEqual({ from: "11:00", to: "15:00" });
   });
 });

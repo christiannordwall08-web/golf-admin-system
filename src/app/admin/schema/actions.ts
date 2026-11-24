@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { monthParam } from "@/domain/calendar";
 import type { WorkCategory } from "@/domain/roles";
-import { type ShiftIssue } from "@/domain/shifts";
+import { DEFAULT_SHIFT_TIMES, type ShiftIssue } from "@/domain/shifts";
 import { stockholmYearMonth } from "@/domain/time";
 import { requirePermission } from "@/server/auth/current-user";
 import { getDb } from "@/server/db";
@@ -192,4 +192,39 @@ export async function publishShiftsAction(formData: FormData): Promise<void> {
     publicerat: String(published),
   });
   redirect(`/admin/schema?${qs.toString()}`);
+}
+
+export type QuickCreateResult = { ok: true; message: string } | { ok: false; message: string };
+
+const quickSchema = z.object({
+  employeeId: z.string().min(1).max(60),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/**
+ * Dra ett namn till en dag: skapar ett UTKAST med standardtiden (11.00–15.00). Samma regler som "Nytt pass" gäller
+ * (ingen dubbelbokning, rätt arbetskategori, bara aktiva). Dagar som passerat kräver "Nytt pass" med bekräftelse.
+ */
+export async function quickCreateShiftAction(input: { employeeId: string; date: string }): Promise<QuickCreateResult> {
+  try {
+    const session = await requirePermission("schedule:write");
+    const parsed = quickSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Ogiltig dag eller person." };
+    const result = await createShift(getDb(), { id: session.user.id, role: session.user.actingRole }, {
+      employeeId: parsed.data.employeeId,
+      date: parsed.data.date,
+      from: DEFAULT_SHIFT_TIMES.from,
+      to: DEFAULT_SHIFT_TIMES.to,
+      confirmWarnings: false,
+    });
+    if (!result.ok) {
+      const first = result.issues[0]?.message ?? "Passet kunde inte skapas.";
+      return { ok: false, message: result.needsConfirm ? `${first} Använd + i dagen om du ändå vill lägga till det.` : first };
+    }
+    return { ok: true, message: `Passet ${DEFAULT_SHIFT_TIMES.from.replace(":", ".")}–${DEFAULT_SHIFT_TIMES.to.replace(":", ".")} lades till som utkast.` };
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) redirect("/login");
+    if (e instanceof AppError) return { ok: false, message: e.message };
+    throw e;
+  }
 }

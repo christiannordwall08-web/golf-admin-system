@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MonthNav } from "@/components/layout/month-nav";
+import { PlannerProvider } from "@/components/schedule/planner";
 import { CategoryLegend, ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { monthParam, parseMonthParam } from "@/domain/calendar";
+import { DEFAULT_SHIFT_TIMES } from "@/domain/shifts";
 import { summarizeShifts } from "@/domain/hours";
 import { formatDuration } from "@/domain/money";
 import { CATEGORY_LABEL, type WorkCategory } from "@/domain/roles";
@@ -17,6 +19,7 @@ import { formatMonthYear, stockholmDateOf, stockholmYearMonth } from "@/domain/t
 import { requireAdminArea, toActor } from "@/server/auth/current-user";
 import { getDb } from "@/server/db";
 import { getScheduleMonth } from "@/server/queries/schedule";
+import { listSchedulableEmployees } from "@/server/queries/shift-edit";
 import { publishShiftsAction } from "./actions";
 
 export const metadata: Metadata = { title: "Schema" };
@@ -43,7 +46,12 @@ export default async function AdminSchedulePage({
   const flash = sp.sparat ? FLASH[sp.sparat] : undefined;
   const publishedCount = sp.publicerat !== undefined && /^\d{1,5}$/.test(sp.publicerat) ? Number(sp.publicerat) : undefined;
 
-  const shifts = await getScheduleMonth(getDb(), toActor(session), { ...ym, category, now });
+  const [shifts, schedulable] = await Promise.all([
+    getScheduleMonth(getDb(), toActor(session), { ...ym, category, now }),
+    listSchedulableEmployees(getDb(), toActor(session)),
+  ]);
+  // Namnen som kan dras till en dag: aktiva anställda i den visade gruppen. Administratörerna läggs in med "Nytt pass".
+  const plannable = schedulable.filter((e) => !e.isAdmin && (!category || e.category === category));
   const summary = summarizeShifts(
     shifts.map((s) => ({ id: s.id, startsAt: s.startsAt, endsAt: s.endsAt, localDate: s.localDate, workStatus: s.workStatus })),
     now,
@@ -140,7 +148,12 @@ export default async function AdminSchedulePage({
         <StatCard label="Kommande" value={formatDuration(summary.remainingMinutes)} />
       </section>
 
+      <PlannerProvider
+        people={plannable.map((e) => ({ id: e.id, name: e.name, category: e.category }))}
+        defaultLabel={`${DEFAULT_SHIFT_TIMES.from.replace(":", ".")}–${DEFAULT_SHIFT_TIMES.to.replace(":", ".")}`}
+      >
       <ScheduleCalendar
+        plannable
         ym={ym}
         now={now}
         showCategory={!category}
@@ -162,9 +175,10 @@ export default async function AdminSchedulePage({
           note: s.note,
         }))}
       />
+      </PlannerProvider>
 
       <Notice tone="info" title="Så fungerar schemat" className="mt-6">
-        Klicka på ett pass för att ändra eller ställa in det, eller på + i en dag för att skapa ett nytt. Nya pass är <b>utkast</b> tills du publicerar dem.
+        Dra ett namn till en dag för att lägga in ett pass ({DEFAULT_SHIFT_TIMES.from.replace(":", ".")}–{DEFAULT_SHIFT_TIMES.to.replace(":", ".")}). Klicka på ett pass för att ändra eller ställa in det, eller på + i en dag för ett pass med egna tider. Nya pass är <b>utkast</b> tills du publicerar dem.
         Pass raderas aldrig: ett inställt pass finns kvar i historiken. Kopiera förra veckan eller månaden, och notiser till personalen, byggs senare.
       </Notice>
     </>

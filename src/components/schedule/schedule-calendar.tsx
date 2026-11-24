@@ -4,6 +4,7 @@ import { CATEGORY_LABEL, type WorkCategory } from "@/domain/roles";
 import { formatDateLong, formatTimeRange, localToInstant } from "@/domain/time";
 import { formatDuration } from "@/domain/money";
 import { cn } from "@/lib/utils";
+import { DayDropZone } from "./planner";
 import { AdminTag, ApprovalBadge, CategoryBadge, DraftBadge, PhaseBadge } from "./shift-badges";
 import type { ShiftPhase } from "@/domain/hours";
 
@@ -49,6 +50,7 @@ export function ScheduleCalendar({
   emptyText = "Inga pass den här månaden.",
   shiftHref,
   newShiftHref,
+  plannable = false,
 }: {
   ym: YearMonth;
   now: Date;
@@ -59,6 +61,8 @@ export function ScheduleCalendar({
   shiftHref?: (shiftId: string) => string;
   /** Visar en "+"-länk i varje dag (Admin: nytt pass den dagen). */
   newShiftHref?: (date: string) => string;
+  /** Dagarna tar emot namn som dras dit (kräver att sidan ligger inom PlannerProvider). */
+  plannable?: boolean;
 }) {
   const byDate = group(shifts);
   const weeks = buildMonthGrid(ym, now);
@@ -79,15 +83,15 @@ export function ScheduleCalendar({
           <div key={wi} className="grid grid-cols-7 border-b border-line last:border-b-0">
             {week.map((day) => {
               const dayShifts = byDate.get(day.date) ?? [];
+              const cellClass = cn(
+                "min-h-28 border-r border-line p-1.5 last:border-r-0",
+                !day.inMonth && "bg-stone-50/60 text-ink-muted/60",
+                day.isWeekend && day.inMonth && "bg-stone-50/30",
+              );
+              const Cell = plannable && day.inMonth ? DayDropZone : "div";
+              const cellProps = plannable && day.inMonth ? { date: day.date, className: cellClass } : { className: cellClass };
               return (
-                <div
-                  key={day.date}
-                  className={cn(
-                    "min-h-28 border-r border-line p-1.5 last:border-r-0",
-                    !day.inMonth && "bg-stone-50/60 text-ink-muted/60",
-                    day.isWeekend && day.inMonth && "bg-stone-50/30",
-                  )}
-                >
+                <Cell key={day.date} {...(cellProps as { date: string; className: string })}>
                   <div className="mb-1 flex items-center justify-between">
                     {newShiftHref && day.inMonth ? (
                       <Link
@@ -150,7 +154,7 @@ export function ScheduleCalendar({
                         })
                       : null}
                   </ul>
-                </div>
+                </Cell>
               );
             })}
           </div>
