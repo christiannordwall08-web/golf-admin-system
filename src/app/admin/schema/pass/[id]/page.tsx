@@ -18,7 +18,8 @@ import { ShiftStatusActions } from "../../shift-status-actions";
 
 export const metadata: Metadata = { title: "Ändra pass" };
 
-const REASON = { INITIAL: "Första tilldelning", ADMIN_REASSIGNMENT: "Ändrad av Admin", SHIFT_SWAP: "Passbyte" } as const;
+const REASON = { INITIAL: "Första tilldelning", ADMIN_REASSIGNMENT: "Ändrad av Admin", SHIFT_SWAP: "Passbyte",
+  OPEN_SHIFT: "Ledigt pass", } as const;
 
 export default async function EditShiftPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdminArea();

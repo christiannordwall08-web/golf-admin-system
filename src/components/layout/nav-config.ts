@@ -12,7 +12,9 @@ export type NavIcon =
   | "pin"
   | "map"
   | "settings"
-  | "user";
+  | "user"
+  /** Lediga pass. */
+  | "open";
 
 export type NavItem = {
   href: string;
@@ -39,6 +41,7 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/admin", label: "Översikt", icon: "dashboard" },
     { href: "/admin/personal", label: "Personal & löner", icon: "users" },
     { href: "/admin/schema", label: "Schema", icon: "calendar" },
+    { href: "/admin/lediga-pass", label: "Lediga pass", icon: "open" },
     { href: "/admin/passbyten", label: "Passbyten", icon: "swap" },
     { href: "/admin/bollplockare", label: "Bollplockare (live)", icon: "pin" },
     { href: "/admin/bollplockare/omrade", label: "Karta & arbetsområde", icon: "map" },
@@ -49,6 +52,7 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   GOLFSHOP: [
     { href: "/golfshop", label: "Start", icon: "dashboard" },
     { href: "/golfshop/schema", label: "Mitt schema", icon: "calendar" },
+    { href: "/golfshop/lediga-pass", label: "Lediga pass", icon: "open" },
     { href: "/golfshop/timmar", label: "Mina timmar", icon: "clock" },
     { href: "/golfshop/byten", label: "Passbyten", icon: "swap" },
     { href: "/golfshop/dagsavslut", label: "Dagsavslut", icon: "camera" },

@@ -26,7 +26,7 @@ export type EditableShift = {
   phase: ShiftPhase;
   /** Passet har en tidsregistrering och kan inte ändras här. */
   hasTimeEntry: boolean;
-  history: { at: Date; reason: "INITIAL" | "ADMIN_REASSIGNMENT" | "SHIFT_SWAP"; fromName: string | null; toName: string; byName: string }[];
+  history: { at: Date; reason: "INITIAL" | "ADMIN_REASSIGNMENT" | "SHIFT_SWAP" | "OPEN_SHIFT"; fromName: string | null; toName: string; byName: string }[];
 };
 
 /** Ett pass med allt som behövs för att ändra det (Admin). */

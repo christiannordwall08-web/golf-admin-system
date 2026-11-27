@@ -1,0 +1,87 @@
+// =============================================================================
+// LEDIGA PASS OCH SCHEMAINSTÄLLNINGAR
+// Ett ledigt pass (OpenShift) är ett pass som Admin lägger ut UTAN ansvarig. Det är ingen Shift: en Shift har alltid
+// en ansvarig anställd (NOT NULL). När någon får det lediga passet skapas en vanlig Shift i samma transaktion, och
+// OpenShift.filledShiftId pekar på den. Så gäller alla regler för Shift (överlappsskydd, historik) även här.
+// Se docs/DATA-MODEL.md, avsnitt "Lediga pass".
+// =============================================================================
+
+/// OPEN = går att ta. FILLED = har blivit en Shift. CANCELLED = indraget av Admin.
+enum OpenShiftStatus {
+  OPEN
+  FILLED
+  CANCELLED
+}
+
+/// En anställds intresseanmälan för ett ledigt pass.
+enum OpenShiftClaimStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+model OpenShift {
+  id            String          @id @default(cuid())
+  category      WorkCategory
+  /// För pass utan fast sluttid (bollplockare) samma betydelse som Shift.startsAt/endsAt (tidigaste incheckning / arbetsdygnets slut).
+  startsAt      DateTime        @db.Timestamptz(3)
+  endsAt        DateTime        @db.Timestamptz(3)
+  /// Stockholm-datum för arbetsdagen.
+  localDate     DateTime        @db.Date
+  openEnded     Boolean         @default(false)
+  notes         String?
+  status        OpenShiftStatus @default(OPEN)
+  /// true = först till kvarn: den första behöriga som tar passet får det direkt. false = Admin väljer bland anmälningarna.
+  autoAssign    Boolean         @default(true)
+  /// Optimistisk låsning: tillsätts/dras in med WHERE id AND version AND status = OPEN.
+  version       Int             @default(1)
+  createdById   String
+  filledShiftId String?         @unique
+  filledAt      DateTime?       @db.Timestamptz(3)
+  cancelledAt   DateTime?       @db.Timestamptz(3)
+  cancelledById String?
+  cancelReason  String?
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+
+  createdBy   User   @relation("OpenShiftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  cancelledBy User?  @relation("OpenShiftCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  filledShift Shift? @relation("OpenShiftFilled", fields: [filledShiftId], references: [id], onDelete: Restrict)
+
+  claims OpenShiftClaim[]
+
+  @@index([category, status, startsAt])
+}
+
+/// En anställd per ledigt pass (unik). Drar man tillbaka och anmäler sig igen återanvänds raden.
+model OpenShiftClaim {
+  id          String               @id @default(cuid())
+  openShiftId String
+  employeeId  String
+  status      OpenShiftClaimStatus @default(PENDING)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime             @updatedAt @db.Timestamptz(3)
+  decidedAt   DateTime?            @db.Timestamptz(3)
+  decidedById String?
+
+  openShift OpenShift @relation(fields: [openShiftId], references: [id], onDelete: Restrict)
+  employee  Employee  @relation("OpenShiftClaimant", fields: [employeeId], references: [id], onDelete: Restrict)
+  decidedBy User?     @relation("OpenShiftClaimDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@unique([openShiftId, employeeId])
+  @@index([employeeId, status])
+}
+
+/// En rad (id = "default"). Admins val för schemaläggning, lediga pass och passbyten.
+model SchedulingSettings {
+  id                         String   @id @default("default")
+  /// true = ett passbyte (DIRECT/OPEN) som en kollega tackat ja till godkänns automatiskt om inga regler bryts.
+  autoApproveSwaps           Boolean  @default(false)
+  /// Förval för nya lediga pass: först till kvarn (true) eller Admin väljer (false).
+  openShiftAutoAssignDefault Boolean  @default(true)
+  updatedById                String?
+  updatedAt                  DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("SchedulingSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+}

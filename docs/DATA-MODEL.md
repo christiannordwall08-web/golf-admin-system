@@ -38,6 +38,8 @@ DailyClosing, DailyClosingAssignment   (dagsavslut, kopplas till anställd och a
 | `ShiftAssignmentHistory` | Append-only: varje byte av ansvarig person (även första tilldelningen). | scheduling |
 | `ShiftApproval` | Append-only: den anställdas beslut om passet, för en viss version av passet. | scheduling |
 | `ShiftSwapRequest` / `ShiftSwapMessage` | Ändrings-/bytesförfrågan med status och en meddelandetråd (append-only). | scheduling |
+| `OpenShift` / `OpenShiftClaim` | Ledigt pass utan ansvarig, och personalens intresseanmälningar. Blir en vanlig `Shift` när det tillsätts. Se [LEDIGA-PASS.md](LEDIGA-PASS.md). | open-shifts |
+| `SchedulingSettings` | En rad: automatiskt godkännande av passbyten och förval för lediga pass. | open-shifts |
 | `PayRate` | Timlöneperiod: `hourlyRateOre`, `validFrom`, `validTo` (exklusivt). | time-pay |
 | `WorkTimeEntry` | Exakt en per pass. Schemalagd, registrerad och godkänd tid hålls isär. | time-pay |
 | `WorkTimeCorrection` | Append-only: varje korrigering med orsak. | time-pay |
@@ -126,6 +128,8 @@ anställd inte schemaläggs, och om ett godkänt pass ändras ska nytt godkänna
    `approvalStatus = APPROVED_AFTER_SWAP`; skriv `ShiftAssignmentHistory` (`SHIFT_SWAP`); förfrågan `APPROVED`; notifiera båda; revisionsrad.
    Vid nekande: `DENIED`, passets status återställs.
 4. Ursprunglig tilldelning (`originalEmployeeId` och historiken) finns kvar. Framtida tidsregistrering skapas på den nya personen.
+5. **Automatiskt godkännande** (om Admin slagit på det i `SchedulingSettings`): steg 3 körs direkt när kollegan accepterar, för
+   `DIRECT` och `OPEN`, med samma kontroller. Bryts en regel går förfrågan till Admin. Se [LEDIGA-PASS.md](LEDIGA-PASS.md).
 
 ### Automatisk tidsregistrering (Golfshop)
 Ett serverjobb (inte beroende av en öppen webbsida) hittar pass där `endsAt <= nu`, `workStatus = SCHEDULED`, `publicationStatus = PUBLISHED`

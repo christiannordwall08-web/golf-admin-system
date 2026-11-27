@@ -54,6 +54,12 @@ model User {
   gpsWorkAreaUpdates          GpsWorkArea[]             @relation("GpsWorkAreaUpdatedBy")
   gpsPausesVoided             GpsPause[]                @relation("GpsPauseVoidedBy")
   gpsEvents                   GpsEvent[]                @relation("GpsEventActor")
+
+  // Lediga pass och schemainställningar (prisma/schema/open-shifts.prisma)
+  openShiftsCreated          OpenShift[]          @relation("OpenShiftCreatedBy")
+  openShiftsCancelled        OpenShift[]          @relation("OpenShiftCancelledBy")
+  openShiftClaimDecisions    OpenShiftClaim[]     @relation("OpenShiftClaimDecidedBy")
+  schedulingSettingsUpdates  SchedulingSettings[] @relation("SchedulingSettingsUpdatedBy")
 }
 
 model Session {
@@ -117,6 +123,7 @@ model Employee {
   payrollAdjustments       PayrollAdjustment[]
   dailyClosings            DailyClosing[]
   dailyClosingsResponsible DailyClosingAssignment[]
+  openShiftClaims          OpenShiftClaim[]         @relation("OpenShiftClaimant")
 
   @@unique([userId, category])
   @@index([category, status])
