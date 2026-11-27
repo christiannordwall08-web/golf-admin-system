@@ -3,6 +3,7 @@
 import {
   ArrowLeftRight,
   CalendarDays,
+  CalendarPlus,
   Camera,
   Clock,
   FileSpreadsheet,
@@ -33,6 +34,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   map: MapIcon,
   settings: Settings,
   user: User,
+  open: CalendarPlus,
 };
 
 export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
