@@ -1,11 +1,13 @@
+import { isSwapAutoApprovable } from "@/domain/open-shifts";
 import { type WorkCategory, can } from "@/domain/roles";
 import { analyzeShift } from "@/domain/shifts";
 import { dbDateToString, formatDateLong, localToInstant } from "@/domain/time";
 import { writeAudit } from "@/server/audit";
 import type { DbClient, PrismaClient } from "@/server/db-client";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
+import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { fullName } from "@/server/queries/mappers";
 import { adminUserIds, notify } from "./notifications";
+import { eligibleRecipients, getSchedulingSettings } from "./open-shifts";
 import type { Actor } from "./pay-rates";
 import { overlappingShifts } from "./shifts";
 
@@ -17,6 +19,10 @@ import { overlappingShifts } from "./shifts";
  *  OPEN     – öppen förfrågan till hela gruppen.        Första som tackar ja tar det → Admin beslutar.
  *  EXCHANGE – byt arbetsdag med en kollega (två pass).  Kollegan svarar → Admin beslutar.
  *  CHANGE   – be Admin om en ändring (ingen kollega).   Admin beslutar.
+ *
+ * Automatiskt godkännande: har Admin slagit på `SchedulingSettings.autoApproveSwaps` godkänns DIRECT och OPEN direkt när
+ * kollegan tackar ja, med EXAKT samma kontroller som när Admin godkänner (`applySwapApproval`). Bryts någon regel går
+ * förfrågan till Admin som vanligt. EXCHANGE och CHANGE avgörs alltid av Admin.
  */
 export type SwapKind = "DIRECT" | "OPEN" | "EXCHANGE" | "CHANGE";
 type OpenStatus = "AWAITING_COLLEAGUE" | "AWAITING_ADMIN";
@@ -114,7 +120,8 @@ export async function createSwapRequest(db: PrismaClient, actor: Actor, input: C
 
       const title = `${fullName(me)} ${input.kind === "CHANGE" ? "begär en ändring" : "vill byta pass"} ${shiftLabel(shift)}`;
       if (input.kind === "OPEN") {
-        const group = await tx.employee.findMany({ where: { category: shift.category, status: "ACTIVE", id: { not: me.id }, userId: { not: null } }, select: { userId: true } });
+        // Bara kollegor som faktiskt kan ta passet (aktiva, rätt grupp, ingen krock) får notisen.
+        const group = await eligibleRecipients(tx, shift, now, [me.id]);
         await notify(tx, { userIds: group.flatMap((g) => (g.userId ? [g.userId] : [])), type: "SWAP_REQUESTED", title, body: `Öppen förfrågan. Anledning: ${reason}`, linkPath: employeePath(shift.category, req.id), entityType: "ShiftSwapRequest", entityId: req.id });
       } else if (proposedEmployeeId) {
         const c = await tx.employee.findUnique({ where: { id: proposedEmployeeId }, select: { userId: true } });
@@ -175,6 +182,10 @@ export async function respondToSwap(db: PrismaClient, actor: Actor, requestId: s
   const clash = (await overlappingShifts(db, me.id, r.shift.startsAt, r.shift.endsAt)).filter((s) => s.workStatus !== "CANCELLED" && s.id !== r.counterShiftId);
   if (clash.length > 0) throw new ValidationError("Du har redan ett pass som krockar med det här.");
 
+  const auto = isSwapAutoApprovable(r.kind, (await getSchedulingSettings(db)).autoApproveSwaps);
+  const notifyAdmins = async (tx: DbClient) =>
+    notify(tx, { userIds: await adminUserIds(tx), type: "SWAP_REQUESTED", title: `Passbyte att godkänna: ${fullName(r.requester)} → ${fullName(me)}`, body: `${shiftLabel(r.shift)}. Anledning: ${r.reason}`, linkPath: adminPath(r.id), entityType: "ShiftSwapRequest", entityId: r.id });
+
   await db.$transaction(async (tx) => {
     const { count } = await tx.shiftSwapRequest.updateMany({
       where: { id: r.id, status: "AWAITING_COLLEAGUE", ...(r.kind === "OPEN" ? { proposedEmployeeId: null } : {}) },
@@ -184,9 +195,22 @@ export async function respondToSwap(db: PrismaClient, actor: Actor, requestId: s
     if (input.comment?.trim()) await tx.shiftSwapMessage.create({ data: { requestId: r.id, authorId: actor.id, body: input.comment.trim().slice(0, 500) } });
     await writeAudit(tx, { actorId: actor.id, action: "SWAP_ACCEPTED_BY_COLLEAGUE", entityType: "ShiftSwapRequest", entityId: r.id, after: { employeeId: me.id } });
     const title = `${fullName(me)} kan ta passet ${shiftLabel(r.shift)}`;
-    if (r.requester.userId) await notify(tx, { userIds: [r.requester.userId], type: "SWAP_COLLEAGUE_ACCEPTED", title, body: "Väntar på Admins godkännande.", linkPath: employeePath(r.shift.category, r.id), entityType: "ShiftSwapRequest", entityId: r.id });
-    await notify(tx, { userIds: await adminUserIds(tx), type: "SWAP_REQUESTED", title: `Passbyte att godkänna: ${fullName(r.requester)} → ${fullName(me)}`, body: `${shiftLabel(r.shift)}. Anledning: ${r.reason}`, linkPath: adminPath(r.id), entityType: "ShiftSwapRequest", entityId: r.id });
+    if (r.requester.userId) await notify(tx, { userIds: [r.requester.userId], type: "SWAP_COLLEAGUE_ACCEPTED", title, body: auto ? "Godkänns automatiskt om inga regler bryts." : "Väntar på Admins godkännande.", linkPath: employeePath(r.shift.category, r.id), entityType: "ShiftSwapRequest", entityId: r.id });
+    if (!auto) await notifyAdmins(tx);
   });
+
+  if (!auto) return;
+  try {
+    // Samma kontroller som när Admin godkänner. Ingen Admin är beslutsfattare: decidedById = null, revisionsloggen visar "system".
+    await applySwapApproval(db, { deciderUserId: null, historyActorId: actor.id, comment: "Godkänt automatiskt (inga regler bröts)", now, auto: true }, await loadRequest(db, r.id));
+  } catch (e) {
+    if (!(e instanceof AppError)) throw e;
+    // Någon regel bröts (t.ex. krock som uppstått): låt Admin avgöra som vanligt.
+    await db.$transaction(async (tx) => {
+      await writeAudit(tx, { actorId: null, action: "SWAP_AUTO_APPROVAL_SKIPPED", entityType: "ShiftSwapRequest", entityId: r.id, metadata: { reason: e.message } });
+      await notifyAdmins(tx);
+    });
+  }
 }
 
 /** Meddelande i tråden. Deltagare: den som frågar, kollegan, och Admin. */
@@ -259,7 +283,23 @@ export async function decideSwap(db: PrismaClient, actor: Actor, requestId: stri
     return;
   }
 
-  // Byte av ansvarig person: kontrollera allt igen, nu när Admin beslutar.
+  await applySwapApproval(db, { deciderUserId: actor.id, historyActorId: actor.id, comment, now, auto: false }, r);
+}
+
+type LoadedRequest = Awaited<ReturnType<typeof loadRequest>>;
+
+/**
+ * Byte av ansvarig person: kontrollera allt igen och byt ansvarig atomiskt. Används både när Admin godkänner och vid
+ * automatiskt godkännande, så reglerna är exakt desamma. `deciderUserId` = Admin, eller null när systemet godkänner.
+ */
+async function applySwapApproval(
+  db: PrismaClient,
+  opts: { deciderUserId: string | null; historyActorId: string; comment: string | null; now: Date; auto: boolean },
+  r: LoadedRequest,
+): Promise<void> {
+  const { deciderUserId, historyActorId, comment, now, auto } = opts;
+  if (r.status !== "AWAITING_ADMIN") throw new ConflictError("Förfrågan är redan avgjord.");
+  if (r.kind === "CHANGE") throw new ValidationError("En ändringsbegäran byter inte ansvarig.");
   if (!r.proposedEmployee) throw new ValidationError("Ingen kollega har tagit passet.");
   assertSwappable(r.shift, now);
   if (r.shift.version !== r.shiftVersionAtRequest) throw new ConflictError("Passet har ändrats sedan förfrågan skickades. Be om en ny förfrågan.");
@@ -287,19 +327,22 @@ export async function decideSwap(db: PrismaClient, actor: Actor, requestId: stri
   await db.$transaction(async (tx) => {
     // Vid dagsbyte byter två pass ägare "samtidigt": skjut upp överlappskontrollen till slutet av transaktionen.
     await tx.$executeRawUnsafe('SET CONSTRAINTS "Shift_no_overlap_per_employee" DEFERRED');
-    const { count } = await tx.shiftSwapRequest.updateMany({ where: { id: r.id, status: "AWAITING_ADMIN" }, data: { status: "APPROVED", decidedById: actor.id, decidedAt: now, adminComment: comment } });
+    const { count } = await tx.shiftSwapRequest.updateMany({ where: { id: r.id, status: "AWAITING_ADMIN" }, data: { status: "APPROVED", decidedById: deciderUserId, decidedAt: now, adminComment: comment } });
     if (count === 0) throw new ConflictError();
     const move = async (shiftId: string, version: number, fromId: string, toId: string) => {
       const u = await tx.shift.updateMany({ where: { id: shiftId, version, assignedEmployeeId: fromId }, data: { assignedEmployeeId: toId, approvalStatus: "APPROVED_AFTER_SWAP", version: { increment: 1 } } });
       if (u.count === 0) throw new ConflictError("Passet ändrades just nu.");
-      await tx.shiftAssignmentHistory.create({ data: { shiftId, fromEmployeeId: fromId, toEmployeeId: toId, reason: "SHIFT_SWAP", swapRequestId: r.id, changedById: actor.id, comment } });
+      await tx.shiftAssignmentHistory.create({ data: { shiftId, fromEmployeeId: fromId, toEmployeeId: toId, reason: "SHIFT_SWAP", swapRequestId: r.id, changedById: historyActorId, comment } });
     };
     await move(r.shiftId, r.shift.version, r.requesterId, colleague.id);
     if (exchange) await move(exchange.id, exchange.version, colleague.id, r.requesterId);
-    await writeAudit(tx, { actorId: actor.id, action: "SWAP_APPROVED", entityType: "ShiftSwapRequest", entityId: r.id, metadata: { kind: r.kind, shiftId: r.shiftId, counterShiftId: exchange?.id ?? null, from: r.requesterId, to: colleague.id } });
+    await writeAudit(tx, { actorId: deciderUserId, action: "SWAP_APPROVED", entityType: "ShiftSwapRequest", entityId: r.id, metadata: { kind: r.kind, shiftId: r.shiftId, counterShiftId: exchange?.id ?? null, from: r.requesterId, to: colleague.id, auto } });
     const link = (c: WorkCategory) => (c === "BOLLPLOCKARE" ? "/bollplockare/schema" : "/golfshop/schema");
     await notify(tx, { userIds: [r.requester.userId].flatMap((u) => (u ? [u] : [])), type: "SWAP_APPROVED", title: `Passbytet ${shiftLabel(r.shift)} är godkänt`, body: exchange ? `Du tar ${shiftLabel(exchange)} i stället.` : `${fullName(r.proposedEmployee!)} tar passet.`, linkPath: link(r.shift.category), entityType: "ShiftSwapRequest", entityId: r.id });
     await notify(tx, { userIds: [r.proposedEmployee!.userId].flatMap((u) => (u ? [u] : [])), type: "SWAP_APPROVED", title: `Du har tagit över passet ${shiftLabel(r.shift)}`, body: exchange ? `Du lämnar ${shiftLabel(exchange)}.` : "Se ditt schema.", linkPath: link(r.shift.category), entityType: "ShiftSwapRequest", entityId: r.id });
+    if (auto) {
+      await notify(tx, { userIds: await adminUserIds(tx), type: "SWAP_APPROVED", title: `Passbyte godkänt automatiskt: ${fullName(r.requester)} → ${fullName(r.proposedEmployee!)}`, body: shiftLabel(r.shift), linkPath: adminPath(r.id), entityType: "ShiftSwapRequest", entityId: r.id });
+    }
   });
 }
 

@@ -142,6 +142,10 @@ const ALL_PERMISSIONS = [
   "swap:request",
   "swap:read:all",
   "swap:decide",
+  // Lediga pass: personal tar/anmäler intresse, Admin lägger ut, väljer och drar in. Schemainställningar (Admin).
+  "openshift:claim",
+  "openshift:manage",
+  "settings:scheduling",
   // Arbetstid och lön
   "worktime:read:own",
   "worktime:read:all",
@@ -167,6 +171,7 @@ const STAFF_COMMON: readonly Permission[] = [
   "shift:read:own",
   "shift:respond:own",
   "swap:request",
+  "openshift:claim",
   "worktime:read:own",
   "worktime:clock",
   "notifications:read:own",
