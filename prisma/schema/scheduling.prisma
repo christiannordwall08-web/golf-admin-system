@@ -78,6 +78,8 @@ model Shift {
   workTimeEntry       WorkTimeEntry?
   /// Passbytesförfrågningar där detta pass är motpartens pass i ett dagsbyte.
   swapCounterRequests ShiftSwapRequest[]       @relation("SwapCounterShift")
+  /// Det lediga pass som detta pass skapades från (om något).
+  openShiftSource     OpenShift?               @relation("OpenShiftFilled")
 
   @@index([assignedEmployeeId, startsAt])
   @@index([category, localDate])

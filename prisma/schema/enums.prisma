@@ -50,6 +50,8 @@ enum AssignmentChangeReason {
   INITIAL
   ADMIN_REASSIGNMENT
   SHIFT_SWAP
+  /// Passet skapades när någon fick ett ledigt pass (OpenShift).
+  OPEN_SHIFT
 }
 
 enum SwapRequestStatus {
@@ -111,6 +113,11 @@ enum NotificationType {
   NO_SHOW
   WORKTIME_CORRECTED
   SHIFT_REMINDER
+  OPEN_SHIFT_POSTED
+  OPEN_SHIFT_CLAIMED
+  OPEN_SHIFT_ASSIGNED
+  OPEN_SHIFT_NOT_ASSIGNED
+  OPEN_SHIFT_CANCELLED
 }
 
 enum SwapKind {
